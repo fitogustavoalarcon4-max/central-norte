@@ -1072,14 +1072,17 @@ const PRODUCTOS_DEFAULT = [
   {id:'M016',nombre:'Game Box Pro 9000 Azul y Roja - Arcade Multijuegos',cat:'maquinas',emoji:'🕹️',sku:'MAQ-GBP-AR',precio:15000,minimo:1,stock:0},
   {id:'M017',nombre:'Game Box Pro 9000 Multicolor - Arcade Multijuegos',cat:'maquinas',emoji:'🕹️',sku:'MAQ-GBP-MC',precio:15000,minimo:1,stock:0},
   // ── MÁQUINAS DE PELUCHES Y VIDEO ──
-  {id:'MP001',nombre:'Máquina Supreme de Garra Grande - LED con Luces',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-SUP-GARRA',precio:12000,minimo:1,stock:0},
-  {id:'MP002',nombre:'Super Máquina de Garra 4 en 1 - Rosa con Rosa',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RR',precio:9500,minimo:1,stock:0},
-  {id:'MP003',nombre:'Super Máquina de Garra 4 en 1 - Rosa y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RC',precio:9500,minimo:1,stock:0},
-  {id:'MP004',nombre:'Super Máquina de Garra 4 en 1 - Fucsia y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-FC',precio:9500,minimo:1,stock:0},
-  {id:'MP005',nombre:'Máquina Rosa Súper Tank Claw - Garra LED',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-R',precio:8000,minimo:1,stock:0},
-  {id:'MP006',nombre:'Máquina Verde Súper Tank Claw - Garra LED',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-V',precio:8000,minimo:1,stock:0},
-  {id:'MP007',nombre:'Base para Máquina de Peluches',cat:'maquinas_peluche',emoji:'🔩',sku:'MAQ-PEL-BASE',precio:240,minimo:2,stock:0},
-  {id:'MP008',nombre:'Regulador de Voltaje para Máquina de Peluches',cat:'maquinas_peluche',emoji:'⚡',sku:'MAQ-REG',precio:350,minimo:2,stock:0},
+  {id:'MP001',nombre:'Maquina Supreme de Garra Grande - LED Monedero y Lector de Billetes',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-SUP-GARRA',precio:21990,minimo:1,stock:0},
+  {id:'MP002',nombre:'Super Maquina de Garra 4 en 1 - Rosa con Rosa',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RR',precio:20990,minimo:1,stock:0},
+  {id:'MP003',nombre:'Super Maquina de Garra 4 en 1 - Rosa y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RC',precio:20990,minimo:1,stock:0},
+  {id:'MP004',nombre:'Super Maquina de Garra 4 en 1 - Fucsia y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-FC',precio:20990,minimo:1,stock:0},
+  {id:'MP005',nombre:'Maquina Rosa Súper Tank Claw - Garra LED y Monedero (Mini Garra)',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-R',precio:6290,minimo:1,stock:0},
+  {id:'MP006',nombre:'Maquina Verde Súper Tank Claw - Garra LED y Monedero (Mini Garra)',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-V',precio:6290,minimo:1,stock:0},
+  {id:'MP007',nombre:'Maquina Celeste Súper Tank Claw - Garra LED y Monedero (Mini Garra)',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-C',precio:6290,minimo:1,stock:0},
+  {id:'MP008',nombre:'Maquina Amarilla Súper Tank Claw - Garra LED y Monedero (Mini Garra)',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-A',precio:6290,minimo:1,stock:0},
+  {id:'MP009',nombre:'Maquina Roja Súper Tank Claw - Garra LED y Monedero (Mini Garra)',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-RJ',precio:6290,minimo:1,stock:0},
+  {id:'MP010',nombre:'Base para Máquina de Peluches',cat:'maquinas_peluche',emoji:'🔩',sku:'MAQ-PEL-BASE',precio:240,minimo:2,stock:0},
+  {id:'MP011',nombre:'Regulador de Voltaje para Máquina de Peluches',cat:'maquinas_peluche',emoji:'⚡',sku:'MAQ-REG',precio:350,minimo:2,stock:0},
   // ── CHICLES (10 productos confirmados en sitio) ──
   {id:'C001',nombre:'Chicle EMOJI ZED - 225 Unidades con Caritas de Emoji',cat:'chicles',emoji:'😊',sku:'CHI-EMO',precio:110,minimo:5,stock:0},
   {id:'C002',nombre:'Chicle BILLAR ZED - Bolsa de 225 Unidades Chicle Bola',cat:'chicles',emoji:'🎱',sku:'CHI-BIL',precio:110,minimo:5,stock:0},
@@ -2325,16 +2328,6 @@ function reportarProductoNuevo(){
   toast(`✅ "${nombre}" reportado — el Admin lo validará y cargará al stock`);
   if(_rolActual==='admin') renderResumenAdmin();
 }
-  });
-  document.getElementById('dpi-status').textContent='Ingresá los 13 dígitos de tu DPI';
-  document.getElementById('dpi-status').style.color='var(--txt3)';
-
-  toast(`✅ "${nombre}" reportado — el Admin lo validará y cargará al stock`);
-
-  // Notificar al admin (aparecerá en panel Admin)
-  if(_rolActual==='admin') renderResumenAdmin();
-}
-
 
 function exportarHistorialPDF(){
   const hoyStr = hoy();
