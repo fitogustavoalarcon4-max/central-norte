@@ -658,11 +658,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div class="form-row">
         <div class="fgr">
           <label>Nombre del producto *</label>
-          <input type="text" id="np-nombre" placeholder="Ej: Chicle Fresa ZED">
+          <input type="text" id="vnd-np-nombre" placeholder="Ej: Chicle Fresa ZED">
         </div>
         <div class="fgr">
           <label>Cantidad recibida *</label>
-          <input type="number" id="np-cantidad" min="1" placeholder="0">
+          <input type="number" id="vnd-np-cantidad" min="1" placeholder="0">
         </div>
       </div>
       <div class="form-row">
@@ -1117,6 +1117,10 @@ const PRODUCTOS_DEFAULT = [
   // ── PELUCHES ──
   {id:'PEL001',nombre:'Peluches Sorpresa de 8"',cat:'peluches',emoji:'🧸',sku:'PEL-8P',precio:55,minimo:10,stock:0},
   {id:'PEL002',nombre:'Peluches Sorpresa - Para Máquinas de Garra Pequeñas',cat:'peluches',emoji:'🧸',sku:'PEL-SURT',precio:35,minimo:20,stock:0},
+  {id:'PEL003',nombre:'Peluchera Mini Garra Pequeña',cat:'peluches',emoji:'🧸',sku:'PEL-MINI-G',precio:45,minimo:10,stock:0},
+  {id:'PEL004',nombre:'Peluchera Mini Garra Mediana',cat:'peluches',emoji:'🧸',sku:'PEL-MINI-GM',precio:55,minimo:10,stock:0},
+  {id:'PEL005',nombre:'Peluchera Mini Garra Grande',cat:'peluches',emoji:'🧸',sku:'PEL-MINI-GG',precio:65,minimo:10,stock:0},
+  {id:'PEL006',nombre:'Peluches Surtidos para Máquina de Garra Mini',cat:'peluches',emoji:'🧸',sku:'PEL-GARRA-MINI',precio:40,minimo:20,stock:0},
   // ── REPUESTOS ──
   {id:'R001',nombre:'Chapa de Repuesto para Máquina Tipo 201 y 203',cat:'repuestos',emoji:'🔑',sku:'REP-CHAP',precio:129,minimo:5,stock:0},
   {id:'R002',nombre:'Mecanismo para Dispensar Chicles o Juguetes de 1"',cat:'repuestos',emoji:'⚙️',sku:'REP-DISP1',precio:279,minimo:5,stock:0},
@@ -2289,8 +2293,8 @@ function validarDPI(input){
 
 // ── Reportar producto nuevo desde vendedor ──
 function reportarProductoNuevo(){
-  const nombre=document.getElementById('np-nombre').value.trim();
-  const cantidad=parseInt(document.getElementById('np-cantidad').value)||0;
+  const nombre=document.getElementById('vnd-np-nombre').value.trim();
+  const cantidad=parseInt(document.getElementById('vnd-np-cantidad').value)||0;
   const desc=document.getElementById('np-desc').value.trim();
   const precio=parseFloat(document.getElementById('np-precio-v').value)||0;
   const dpi=document.getElementById('np-dpi').value.trim();
@@ -2302,22 +2306,25 @@ function reportarProductoNuevo(){
     return;
   }
 
-  // Guardar como reporte pendiente de validación (NO entra al stock todavía)
   if(!db.productosPendientes) db.productosPendientes=[];
   const reporte={
     id:'PEND-'+Date.now(),
     timestamp:ahora(), fecha:hoy(),
     nombre, cantidad, desc, precio,
-    dpi,
-    estado:'pendiente', // admin lo valida
+    dpi, estado:'pendiente',
     registradoPor:'vendedor',
   };
   db.productosPendientes.push(reporte);
   saveDB();
 
-  // Limpiar
-  ['np-nombre','np-cantidad','np-desc','np-precio-v','np-dpi'].forEach(id=>{
+  ['vnd-np-nombre','vnd-np-cantidad','np-desc','np-precio-v','np-dpi'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('dpi-status').textContent='Ingresá los 13 dígitos de tu DPI';
+  document.getElementById('dpi-status').style.color='var(--txt3)';
+  toast(`✅ "${nombre}" reportado — el Admin lo validará y cargará al stock`);
+  if(_rolActual==='admin') renderResumenAdmin();
+}
   });
   document.getElementById('dpi-status').textContent='Ingresá los 13 dígitos de tu DPI';
   document.getElementById('dpi-status').style.color='var(--txt3)';
@@ -2806,9 +2813,213 @@ function verificarConexionSheets(){
 }
 
 // ════════════════════════════════════════════════════
-//  IMPORTAR EXCEL AL STOCK
+//  IMPORTAR EXCEL AL STOCK — VERSIÓN MEJORADA
 // ════════════════════════════════════════════════════
 let _excelImportData = [];
+
+function procesarExcelImport(input){
+  const file = input.files[0];
+  if(!file){ return; }
+  const preview = document.getElementById('excel-import-preview');
+  if(preview) preview.innerHTML = '<div style="font-size:12px;color:var(--txt3)">⏳ Leyendo archivo...</div>';
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+
+      if(!rows.length){
+        if(preview) preview.innerHTML = '<div style="color:var(--red);font-size:12px">❌ El archivo está vacío.</div>';
+        return;
+      }
+
+      const cols = Object.keys(rows[0]);
+
+      // Detectar columna de nombre
+      const colNombre = cols.find(c => /nombre|product|item|descripci|artículo|articulo|descrip/i.test(c)) || cols[0];
+
+      // Detectar columnas de cantidad — cajas, bolsas, unidades, stock
+      const colCajas   = cols.find(c => /caja/i.test(c));
+      const colBolsas  = cols.find(c => /bolsa/i.test(c));
+      const colUnids   = cols.find(c => /unid|unit|pza|pieza/i.test(c));
+      const colStock   = cols.find(c => /^cant|stock|qty|quantity|total/i.test(c));
+      const colCantPrincipal = colUnids || colCajas || colStock || cols[1];
+
+      // Precio y SKU opcionales
+      const colPrecio = cols.find(c => /precio|price|costo|valor/i.test(c));
+      const colSku    = cols.find(c => /sku|code|codigo|ref|cod/i.test(c));
+      const colCat    = cols.find(c => /categ|tipo|type/i.test(c));
+
+      _excelImportData = rows.map((r,i) => {
+        const nombre = String(r[colNombre]||'').trim();
+        const cajas  = colCajas  ? (parseInt(r[colCajas])||0)  : 0;
+        const bolsas = colBolsas ? (parseInt(r[colBolsas])||0) : 0;
+        const unids  = parseInt(r[colCantPrincipal])||0;
+        // Cantidad total: si tiene cajas y bolsas, sumar todo
+        const cantTotal = cajas + bolsas + (cajas||bolsas ? 0 : unids);
+        return {
+          idx: i, nombre,
+          cajas, bolsas, unids: cajas||bolsas ? unids : unids,
+          cantTotal: cantTotal || unids,
+          precio: colPrecio ? (parseFloat(r[colPrecio])||0) : 0,
+          sku: colSku ? String(r[colSku]||'').trim() : '',
+          cat: colCat ? String(r[colCat]||'').trim() : '',
+          ok: nombre.length > 0 && (cantTotal > 0 || unids > 0),
+          excluir: false
+        };
+      }).filter(r => r.nombre);
+
+      renderExcelPreview(colNombre, colCajas, colBolsas, colCantPrincipal, colPrecio);
+    } catch(err) {
+      if(preview) preview.innerHTML = `<div style="color:var(--red);font-size:12px">❌ Error al leer: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+function renderExcelPreview(colNombre, colCajas, colBolsas, colCant, colPrecio){
+  const preview = document.getElementById('excel-import-preview');
+  if(!preview) return;
+
+  const validos = _excelImportData.filter(r=>r.ok && !r.excluir).length;
+  const excluidos = _excelImportData.filter(r=>r.excluir).length;
+
+  let colsLabel = `<b>${colNombre}</b>`;
+  if(colCajas) colsLabel += ` · <b>${colCajas}</b> (cajas)`;
+  if(colBolsas) colsLabel += ` · <b>${colBolsas}</b> (bolsas)`;
+  if(colCant && !colCajas && !colBolsas) colsLabel += ` · <b>${colCant}</b> (cantidad)`;
+  if(colPrecio) colsLabel += ` · <b>${colPrecio}</b> (precio)`;
+
+  preview.innerHTML = `
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--r);padding:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--grn);margin-bottom:4px">
+        ✅ ${validos} productos listos para importar${excluidos>0?` · <span style="color:var(--yel)">${excluidos} excluidos</span>`:''}
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px">Columnas: ${colsLabel}</div>
+
+      <!-- Tabla con scroll horizontal -->
+      <div style="overflow-x:auto;overflow-y:auto;max-height:260px;margin-bottom:10px;border:1px solid var(--bdr2);border-radius:var(--r)">
+        <table style="width:100%;border-collapse:collapse;min-width:400px;font-size:11px">
+          <thead style="position:sticky;top:0;background:var(--bg3);z-index:1">
+            <tr>
+              <th style="padding:6px 8px;text-align:left;color:var(--txt3);font-weight:600">Nombre</th>
+              ${colCajas?'<th style="padding:6px 8px;text-align:center;color:var(--txt3)">Cajas</th>':''}
+              ${colBolsas?'<th style="padding:6px 8px;text-align:center;color:var(--txt3)">Bolsas</th>':''}
+              <th style="padding:6px 8px;text-align:center;color:var(--txt3)">Total uds</th>
+              ${colPrecio?'<th style="padding:6px 8px;text-align:center;color:var(--txt3)">Precio</th>':''}
+              <th style="padding:6px 8px;text-align:center;color:var(--txt3)">Excluir</th>
+            </tr>
+          </thead>
+          <tbody id="excel-tabla-body">
+            ${_excelImportData.map((r,i) => renderExcelFila(r, i, !!colCajas, !!colBolsas, !!colPrecio)).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="fgr" style="margin-bottom:10px">
+        <label>Motivo del ingreso <span style="color:var(--red)">*</span></label>
+        <input type="text" id="excel-motivo" placeholder="Ej: Carga inicial, Pedido TRIX junio..."
+          style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="confirmarExcelImport()">
+        📥 Importar <span id="excel-import-count">${validos}</span> productos al stock
+      </button>
+    </div>`;
+}
+
+function renderExcelFila(r, i, tieneCajas, tieneBolsas, tienePrecio){
+  const bg = r.excluir ? 'opacity:.4;background:rgba(239,68,68,.05)' : (!r.ok ? 'background:rgba(234,179,8,.05)' : '');
+  return `<tr id="excel-fila-${i}" style="${bg};border-bottom:1px solid var(--bdr)">
+    <td style="padding:6px 8px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.nombre}">${r.nombre}</td>
+    ${tieneCajas?`<td style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace">${r.cajas||0}</td>`:''}
+    ${tieneBolsas?`<td style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace">${r.bolsas||0}</td>`:''}
+    <td style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-weight:700;color:${r.ok?'var(--grn)':'var(--yel)'}">${r.cantTotal||r.unids||'?'}</td>
+    ${tienePrecio?`<td style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace">${r.precio?'Q'+r.precio:''}</td>`:''}
+    <td style="padding:6px 8px;text-align:center">
+      <button style="background:${r.excluir?'rgba(34,197,94,.2)':'rgba(239,68,68,.15)'};border:none;border-radius:4px;color:${r.excluir?'var(--grn)':'var(--red)'};width:24px;height:24px;cursor:pointer;font-size:12px;font-weight:700"
+        onclick="toggleExcelFila(${i})">${r.excluir?'↩':'✕'}</button>
+    </td>
+  </tr>`;
+}
+
+function toggleExcelFila(idx){
+  _excelImportData[idx].excluir = !_excelImportData[idx].excluir;
+  const fila = document.getElementById(`excel-fila-${idx}`);
+  const r = _excelImportData[idx];
+  if(fila){
+    fila.style.opacity = r.excluir ? '.4' : '';
+    fila.style.background = r.excluir ? 'rgba(239,68,68,.05)' : '';
+    const btn = fila.querySelector('button');
+    if(btn){
+      btn.textContent = r.excluir ? '↩' : '✕';
+      btn.style.background = r.excluir ? 'rgba(34,197,94,.2)' : 'rgba(239,68,68,.15)';
+      btn.style.color = r.excluir ? 'var(--grn)' : 'var(--red)';
+    }
+  }
+  const validos = _excelImportData.filter(r=>r.ok && !r.excluir).length;
+  const countEl = document.getElementById('excel-import-count');
+  if(countEl) countEl.textContent = validos;
+}
+
+function confirmarExcelImport(){
+  const motivo = document.getElementById('excel-motivo')?.value.trim();
+  if(!motivo){ toast('Ingresá el motivo del ingreso','err'); return; }
+  const validos = _excelImportData.filter(r=>r.ok && !r.excluir);
+  if(!validos.length){ toast('Sin productos para importar','err'); return; }
+
+  const ts = ahora();
+  let importados = 0, nuevos = 0;
+
+  validos.forEach(row => {
+    const cant = row.cantTotal || row.unids || 0;
+    if(!cant) return;
+
+    let prod = db.productos.find(p =>
+      p.nombre.toLowerCase().trim() === row.nombre.toLowerCase().trim() ||
+      (row.sku && p.sku === row.sku)
+    );
+
+    if(prod){
+      prod.stock = Math.max(0, prod.stock + cant);
+      if(row.precio && !prod.precio) prod.precio = row.precio;
+    } else {
+      const nuevoId = 'PROD-IMP-'+Date.now()+'-'+importados;
+      prod = {
+        id:nuevoId, nombre:row.nombre,
+        sku:row.sku||nuevoId, cat:'otro', emoji:'📦',
+        precio:row.precio||0, minimo:1, stock:cant,
+        creadoPor:{rol:'admin',ejecutadoPor:'Admin',timestamp:ts,fecha:hoy()}
+      };
+      db.productos.push(prod);
+      nuevos++;
+    }
+
+    db.movimientos.push({
+      id:'MOV-IMP-'+Date.now()+'-'+importados,
+      timestamp:ts, fecha:hoy(),
+      tipo:'ingreso', prodId:prod.id, prodNombre:prod.nombre,
+      cantidad:cant, costo:0,
+      motivo:`[EXCEL] ${motivo}`,
+      ejecutadoPor:'Admin', ref:'EXCEL-IMPORT'
+    });
+    importados++;
+  });
+
+  saveDB();
+  poblarSelects(); poblarSelectPedido(); renderStock(); renderResumenAdmin();
+
+  const preview = document.getElementById('excel-import-preview');
+  if(preview) preview.innerHTML = `
+    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:var(--r);padding:12px;font-size:13px">
+      ✅ <b>${importados} productos importados</b> — ${importados-nuevos} actualizados · ${nuevos} nuevos creados
+    </div>`;
+  _excelImportData = [];
+  toast(`✅ ${importados} productos importados desde Excel`);
+}
 
 function procesarExcelImport(input){
   const file = input.files[0];
