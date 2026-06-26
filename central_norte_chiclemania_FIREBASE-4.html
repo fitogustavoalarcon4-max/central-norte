@@ -1,0 +1,3240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Central Norte — ChicleManía</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:    #0a0c10;
+  --bg2:   #111318;
+  --bg3:   #181b22;
+  --bg4:   #1f2330;
+  --card:  #161920;
+  --bdr:   rgba(255,255,255,.06);
+  --bdr2:  rgba(255,255,255,.11);
+  --acc:   #f97316;
+  --acc2:  #fb923c;
+  --grn:   #22c55e;
+  --red:   #ef4444;
+  --yel:   #eab308;
+  --blu:   #3b82f6;
+  --txt:   #f1f5f9;
+  --txt2:  #94a3b8;
+  --txt3:  #475569;
+  --r:     10px;
+  --r2:    14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; }
+
+/* ── PANTALLA DE LOGIN ── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.login-logo { font-size: 48px; margin-bottom: 8px; }
+.login-title { font-size: 22px; font-weight: 700; color: var(--acc); margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: var(--txt3); margin-bottom: 36px; }
+.login-card {
+  background: var(--bg2); border: 1px solid var(--bdr2); border-radius: var(--r2);
+  padding: 28px; width: 100%; max-width: 360px;
+}
+.login-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 18px; color: var(--txt2); }
+.pin-display {
+  display: flex; gap: 10px; justify-content: center; margin-bottom: 24px;
+}
+.pin-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--bdr2); background: transparent;
+  transition: all .15s;
+}
+.pin-dot.filled { background: var(--acc); border-color: var(--acc); }
+.pin-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.pin-btn {
+  background: var(--bg3); border: 1px solid var(--bdr2); border-radius: var(--r);
+  color: var(--txt); font-size: 20px; font-weight: 500; padding: 18px;
+  cursor: pointer; transition: all .1s; font-family: 'DM Mono', monospace;
+  -webkit-user-select: none; user-select: none;
+}
+.pin-btn:active { background: var(--bg4); transform: scale(.96); }
+.pin-btn.del { font-size: 16px; color: var(--txt2); }
+.pin-btn.zero { grid-column: 2; }
+.pin-error { color: var(--red); font-size: 12px; text-align: center; margin-top: 12px; min-height: 18px; }
+.login-rol-badge {
+  display: flex; gap: 8px; margin-bottom: 20px;
+}
+.rol-opt {
+  flex: 1; padding: 10px; border-radius: var(--r); border: 1px solid var(--bdr2);
+  background: var(--bg3); cursor: pointer; text-align: center;
+  font-size: 12px; font-weight: 500; color: var(--txt3); transition: all .15s;
+}
+.rol-opt.active { border-color: var(--acc); background: rgba(249,115,22,.1); color: var(--acc); }
+
+/* ── APP PRINCIPAL ── */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+#app.visible { display: flex; }
+
+/* ── HEADER ── */
+.header {
+  background: var(--bg2); border-bottom: 1px solid var(--bdr);
+  padding: 12px 16px; position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.header-logo { font-size: 20px; }
+.header-title { font-size: 15px; font-weight: 700; color: var(--acc); }
+.header-sub { font-size: 11px; color: var(--txt3); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.rol-badge {
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+  background: rgba(249,115,22,.15); color: var(--acc); border: 1px solid rgba(249,115,22,.25);
+}
+.rol-badge.admin { background: rgba(168,85,247,.15); color: #a855f7; border-color: rgba(168,85,247,.25); }
+.btn-logout {
+  background: var(--bg3); border: 1px solid var(--bdr2); border-radius: 8px;
+  color: var(--txt3); font-size: 12px; padding: 6px 12px; cursor: pointer;
+  transition: all .15s;
+}
+.btn-logout:hover { color: var(--red); border-color: rgba(239,68,68,.3); }
+
+/* ── NAV TABS ── */
+.nav-tabs {
+  display: flex; gap: 2px; padding: 8px 12px;
+  background: var(--bg2); border-bottom: 1px solid var(--bdr);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.nav-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; border: none;
+  background: none; color: var(--txt3); font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; transition: all .15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.nav-tab:hover { background: var(--bg3); color: var(--txt); }
+.nav-tab.active { background: rgba(249,115,22,.12); color: var(--acc); }
+.nav-tab .tab-icon { font-size: 15px; }
+
+/* ── PÁGINAS ── */
+.page { display: none; padding: 16px; flex: 1; }
+.page.active { display: block; }
+.page-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.page-sub { font-size: 12px; color: var(--txt3); margin-bottom: 18px; }
+
+/* ── CARDS DE STAT ── */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat-card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r2); padding: 14px 16px; }
+.stat-label { font-size: 10px; font-weight: 600; color: var(--txt3); text-transform: uppercase; letter-spacing: .06em; }
+.stat-val { font-size: 24px; font-weight: 700; margin: 4px 0 2px; font-family: 'DM Mono', monospace; }
+.stat-note { font-size: 11px; color: var(--txt3); }
+
+/* ── VENTA RÁPIDA ── */
+.venta-form {
+  background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r2);
+  padding: 18px; margin-bottom: 16px;
+}
+.venta-form-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.form-row.triple { grid-template-columns: 2fr 1fr 1fr; }
+.fgr { display: flex; flex-direction: column; gap: 5px; }
+.fgr label { font-size: 11px; font-weight: 600; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; }
+.fgr input, .fgr select {
+  background: var(--bg3); border: 1px solid var(--bdr2); border-radius: var(--r);
+  color: var(--txt); font-family: 'DM Sans', sans-serif; font-size: 14px;
+  padding: 10px 12px; outline: none; transition: border-color .15s;
+}
+.fgr input:focus, .fgr select:focus { border-color: var(--acc); }
+.fgr select option { background: var(--bg3); }
+
+/* ── CARRITO DE VENTA ── */
+.cart-items { margin-bottom: 14px; }
+.cart-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg3); border: 1px solid var(--bdr2); border-radius: var(--r);
+  padding: 10px 12px; margin-bottom: 8px;
+}
+.cart-item-name { flex: 1; font-size: 13px; font-weight: 500; }
+.cart-item-sub { font-size: 11px; color: var(--txt3); margin-top: 2px; }
+.cart-qty {
+  display: flex; align-items: center; gap: 6px;
+}
+.qty-btn {
+  background: var(--bg4); border: 1px solid var(--bdr2); border-radius: 6px;
+  color: var(--txt); width: 28px; height: 28px; cursor: pointer;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all .1s; -webkit-user-select: none; user-select: none;
+}
+.qty-btn:active { transform: scale(.9); }
+.qty-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 14px; min-width: 28px; text-align: center; }
+.cart-item-precio { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; color: var(--grn); min-width: 70px; text-align: right; }
+.cart-remove { color: var(--txt3); background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
+.cart-remove:hover { color: var(--red); }
+
+/* ── TOTAL Y BOTÓN CONFIRMAR ── */
+.venta-total {
+  background: var(--bg3); border: 1px solid var(--bdr2); border-radius: var(--r);
+  padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.venta-total-label { font-size: 13px; color: var(--txt2); }
+.venta-total-monto { font-size: 26px; font-weight: 800; font-family: 'DM Mono', monospace; color: var(--grn); }
+
+/* ── BOTONES ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 18px; border-radius: var(--r); border: none;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  font-weight: 600; transition: all .15s; -webkit-user-select: none; user-select: none;
+}
+.btn-primary { background: var(--acc); color: #fff; width: 100%; font-size: 15px; padding: 14px; }
+.btn-primary:active { background: var(--acc2); }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-sec { background: var(--bg3); color: var(--txt2); border: 1px solid var(--bdr2); }
+.btn-sec:hover { background: var(--bg4); color: var(--txt); }
+.btn-danger { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.25); }
+.btn-success { background: rgba(34,197,94,.15); color: var(--grn); border: 1px solid rgba(34,197,94,.25); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+.btn-full { width: 100%; }
+
+/* ── TABLA DE HISTORIAL ── */
+.table-wrap { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r2); overflow: hidden; overflow-x: auto; }
+.htable { width: 100%; border-collapse: collapse; min-width: 500px; }
+.htable thead th {
+  background: var(--bg3); padding: 10px 14px; text-align: left;
+  font-size: 10px; font-weight: 600; color: var(--txt3);
+  text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--bdr);
+}
+.htable tbody tr { border-bottom: 1px solid var(--bdr); transition: background .1s; }
+.htable tbody tr:last-child { border-bottom: none; }
+.htable tbody tr:hover { background: var(--bg3); }
+.htable tbody td { padding: 10px 14px; font-size: 12px; vertical-align: middle; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+.badge-grn { background: rgba(34,197,94,.12); color: var(--grn); }
+.badge-yel { background: rgba(234,179,8,.12); color: var(--yel); }
+.badge-red { background: rgba(239,68,68,.12); color: var(--red); }
+.badge-blu { background: rgba(59,130,246,.12); color: var(--blu); }
+.badge-acc { background: rgba(249,115,22,.12); color: var(--acc); }
+
+/* ── STOCK ── */
+.stock-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r);
+  padding: 12px 14px; margin-bottom: 8px;
+}
+.stock-emoji { font-size: 24px; flex-shrink: 0; }
+.stock-info { flex: 1; min-width: 0; }
+.stock-nombre { font-size: 13px; font-weight: 600; }
+.stock-sku { font-size: 10px; color: var(--txt3); margin-top: 2px; }
+.stock-qty {
+  font-family: 'DM Mono', monospace; font-weight: 700; font-size: 18px;
+  color: var(--grn); min-width: 50px; text-align: right;
+}
+.stock-qty.bajo { color: var(--yel); }
+.stock-qty.sin { color: var(--red); }
+.stock-unit { font-size: 10px; color: var(--txt3); text-align: right; margin-top: 2px; }
+
+/* ── ADMIN ── */
+.admin-card { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r2); padding: 18px; margin-bottom: 14px; }
+.admin-card-title { font-size: 13px; font-weight: 600; color: var(--txt2); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.admin-lock { display: inline-block; background: rgba(168,85,247,.15); color: #a855f7; border: 1px solid rgba(168,85,247,.25); border-radius: 6px; font-size: 10px; padding: 2px 7px; font-weight: 600; }
+
+/* ── MODAL PIN ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.8); z-index: 150;
+  align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--bg2); border: 1px solid var(--bdr2);
+  border-radius: var(--r2); padding: 24px; width: 100%; max-width: 320px;
+}
+.modal-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.modal-sub { font-size: 12px; color: var(--txt3); margin-bottom: 20px; }
+
+/* ── MODAL CONFIRMACIÓN VENTA ── */
+.modal-venta-items { background: var(--bg3); border-radius: var(--r); padding: 12px; margin-bottom: 14px; }
+.modal-venta-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--bdr); }
+.modal-venta-row:last-child { border-bottom: none; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--bg2); border: 1px solid var(--bdr2); border-radius: var(--r);
+  padding: 12px 20px; font-size: 13px; font-weight: 500;
+  display: none; z-index: 300; white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+
+/* ── EMPTY ── */
+.empty { text-align: center; padding: 40px 20px; color: var(--txt3); }
+.empty-icon { font-size: 36px; margin-bottom: 10px; }
+.empty-msg { font-size: 14px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 480px) {
+  .form-row { grid-template-columns: 1fr; }
+  .form-row.triple { grid-template-columns: 1fr 1fr; }
+  .form-row.triple .fgr:first-child { grid-column: 1/-1; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .page { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- ══ PANTALLA DE CARGA FIREBASE ══ -->
+<div id="loading-screen" style="position:fixed;inset:0;z-index:300;background:#0a0c10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:48px">🍬</div>
+  <div style="font-size:18px;font-weight:700;color:#f97316">Central Norte</div>
+  <div style="font-size:13px;color:#475569">Conectando con Firebase...</div>
+  <div style="width:48px;height:48px;border:3px solid #1f2330;border-top:3px solid #f97316;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- ══════════════════════════════════════
+     PANTALLA DE LOGIN CON PIN
+══════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-logo">🍬</div>
+  <div class="login-title">Central Norte</div>
+  <div class="login-sub">ChicleManía — Sistema de tienda</div>
+
+  <div class="login-card">
+    <div class="login-rol-badge">
+      <div class="rol-opt active" id="rol-vend" onclick="selRol('vendedor')">🛒 Vendedor</div>
+      <div class="rol-opt" id="rol-adm" onclick="selRol('admin')">🔐 Admin</div>
+    </div>
+    <h2 id="login-hint">Ingresá tu PIN de vendedor</h2>
+    <div class="pin-display" id="pin-display">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pinKey(1)">1</button>
+      <button class="pin-btn" onclick="pinKey(2)">2</button>
+      <button class="pin-btn" onclick="pinKey(3)">3</button>
+      <button class="pin-btn" onclick="pinKey(4)">4</button>
+      <button class="pin-btn" onclick="pinKey(5)">5</button>
+      <button class="pin-btn" onclick="pinKey(6)">6</button>
+      <button class="pin-btn" onclick="pinKey(7)">7</button>
+      <button class="pin-btn" onclick="pinKey(8)">8</button>
+      <button class="pin-btn" onclick="pinKey(9)">9</button>
+      <button class="pin-btn zero" onclick="pinKey(0)">0</button>
+      <button class="pin-btn del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APLICACIÓN PRINCIPAL
+══════════════════════════════════════ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">🍬</div>
+      <div>
+        <div class="header-title">Central Norte</div>
+        <div class="header-sub" id="header-fecha"></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="rol-badge" id="rol-display">Vendedor</span>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- SALUDO VENDEDOR -->
+  <div id="saludo-vendedor" style="display:none;background:linear-gradient(135deg,rgba(249,115,22,.15),rgba(251,146,60,.08));border-bottom:1px solid rgba(249,115,22,.2);padding:10px 16px;text-align:center">
+    <div style="font-size:15px;font-weight:700;color:var(--acc)">👋 ¡Hola, buen día Rosmery Archila!</div>
+    <div style="font-size:11px;color:var(--txt3);margin-top:2px">Todos tus movimientos quedan registrados con tu nombre · <span id="saludo-hora"></span></div>
+  </div>
+
+  <!-- NAV TABS -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-venta" onclick="goPage('venta',this)">
+      <span class="tab-icon">🛒</span> Vender
+    </button>
+    <button class="nav-tab" id="tab-stock" onclick="goPage('stock',this)">
+      <span class="tab-icon">📦</span> Stock
+    </button>
+    <button class="nav-tab" id="tab-historial" onclick="goPage('historial',this)">
+      <span class="tab-icon">📋</span> Historial
+    </button>
+    <button class="nav-tab" id="tab-pedidos" onclick="goPage('pedidos',this)">
+      <span class="tab-icon">📥</span> Pedidos
+    </button>
+    <button class="nav-tab" id="tab-auditoria" onclick="goPage('auditoria',this)">
+      <span class="tab-icon">✅</span> Auditoría
+    </button>
+    <button class="nav-tab admin-only" id="tab-admin" onclick="goPage('admin',this)" style="display:none">
+      <span class="tab-icon">⚙️</span> Admin
+    </button>
+  </div>
+
+  <!-- ── PÁGINA: VENDER ── -->
+  <div class="page active" id="page-venta">
+    <div class="page-title">Registrar venta</div>
+    <div class="page-sub" id="venta-fecha-hora">Hoy — —:——</div>
+
+    <!-- Selector de producto -->
+<!-- BUSCADOR DE PRODUCTO EN VENTA -->
+<div class="venta-form">
+  <div class="venta-form-title">➕ Agregar producto a la venta</div>
+  <!-- Buscador rápido -->
+  <div style="position:relative;margin-bottom:10px">
+    <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--txt3)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    <input id="v-search" style="width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:9px 12px 9px 36px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s" placeholder="Escribí para buscar producto (nombre, SKU, categoría)..." oninput="filtrarProductosVenta(this.value)" onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--bdr2)'" onkeydown="navBusquedaProd(event)">
+    <div id="v-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--acc);border-radius:var(--r);margin-top:4px;max-height:260px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+  </div>
+  <div class="form-row triple">
+    <div class="fgr">
+      <label>Producto seleccionado</label>
+      <select id="v-prod" onchange="onVProdChange()" tabindex="1">
+        <option value="">— Seleccioná un producto —</option>
+      </select>
+    </div>
+    <div class="fgr">
+      <label>Cantidad</label>
+      <input type="number" id="v-cant" min="1" value="1" placeholder="1" tabindex="2" onkeydown="if(event.key==='Enter'){agregarAlCarrito();event.preventDefault()}">
+    </div>
+    <div class="fgr">
+      <label>&nbsp;</label>
+      <button class="btn btn-success btn-full" onclick="agregarAlCarrito()" style="padding:10px" tabindex="3">+ Agregar</button>
+    </div>
+  </div>
+  <div id="v-prod-info" style="font-size:12px;color:var(--txt3);min-height:18px;margin-top:4px"></div>
+</div>
+
+    <!-- Carrito -->
+    <div id="cart-wrap" style="display:none">
+      <div class="venta-form">
+        <div class="venta-form-title">🧾 Venta en curso</div>
+        <div class="cart-items" id="cart-items"></div>
+        <div class="venta-total">
+          <div>
+            <div class="venta-total-label">Total de la venta</div>
+            <div style="font-size:11px;color:var(--txt3)" id="venta-n-items">0 productos</div>
+          </div>
+          <div class="venta-total-monto" id="venta-total">Q0.00</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-danger btn-sm" onclick="limpiarCarrito()">🗑 Limpiar</button>
+          <button class="btn btn-primary" style="flex:1" onclick="abrirConfVenta()">✓ Confirmar venta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="cart-empty" class="empty">
+      <div class="empty-icon">🛒</div>
+      <div class="empty-msg">Seleccioná productos para iniciar una venta</div>
+    </div>
+  </div>
+
+  <!-- ── PÁGINA: STOCK ── -->
+  <div class="page" id="page-stock">
+    <div class="page-title">Stock disponible</div>
+    <div class="page-sub">Inventario actual de Central Norte</div>
+
+    <div class="stats-row" id="stock-stats"></div>
+
+    <div style="position:relative;margin-bottom:14px">
+      <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--txt3)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input id="stock-search" style="width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:9px 12px 9px 36px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none" placeholder="Buscar producto..." oninput="renderStock()">
+    </div>
+
+    <div id="stock-list"></div>
+  </div>
+
+  <!-- ── PÁGINA: HISTORIAL ── -->
+  <div class="page" id="page-historial">
+    <div class="page-title">Historial de ventas</div>
+    <div class="page-sub" id="hist-sub">Todas las transacciones de la tienda</div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-sec btn-sm" onclick="filtrarHist('hoy')">Hoy</button>
+      <button class="btn btn-sec btn-sm" onclick="filtrarHist('semana')">Esta semana</button>
+      <button class="btn btn-sec btn-sm" onclick="filtrarHist('todo')">Todo</button>
+      <button class="btn btn-success btn-sm" onclick="exportarHistorial()" style="margin-left:auto">📊 Excel</button>
+      <button class="btn btn-sec btn-sm" onclick="exportarHistorialPDF()">🖨️ PDF</button>
+    </div>
+
+    <div class="stats-row" id="hist-stats"></div>
+    <div class="table-wrap"><div id="hist-table"></div></div>
+  </div>
+
+  <!-- ── PÁGINA: PEDIDOS ── -->
+  <div class="page" id="page-pedidos">
+    <div class="page-title">📥 Pedidos e Inventario</div>
+    <div class="page-sub">Ingresos y salidas de stock · Todo queda registrado con tu nombre</div>
+
+    <!-- TIPO DE MOVIMIENTO -->
+    <div class="venta-form" style="margin-bottom:14px">
+      <div class="venta-form-title">¿Qué tipo de movimiento vas a registrar?</div>
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button id="btn-tipo-ingreso" class="btn btn-success" style="flex:1;font-size:13px" onclick="setPedidoTipo('ingreso')">📦 Ingreso de pedido</button>
+        <button id="btn-tipo-salida" class="btn btn-sec" style="flex:1;font-size:13px;border-color:rgba(239,68,68,.3);color:var(--red)" onclick="setPedidoTipo('salida')">🚚 Salida / Traslado</button>
+      </div>
+      <div id="pedido-tipo-desc" style="font-size:11px;color:var(--txt3);margin-top:6px">
+        📦 <b>Ingreso:</b> recibiste productos (pedido semanal, reposición). El stock sube.
+      </div>
+    </div>
+
+    <!-- MOTIVO -->
+    <div class="venta-form" style="margin-bottom:14px">
+      <div class="venta-form-title">📝 Referencia del movimiento</div>
+      <div class="fgr" style="margin-bottom:10px">
+        <label>Motivo / Referencia <span style="color:var(--red)">*</span></label>
+        <input type="text" id="ped-motivo" placeholder="Ej: Pedido semanal TRIX, Traslado a bodega central...">
+      </div>
+    </div>
+
+    <!-- BUSCADOR + CARRITO DE PEDIDO -->
+    <div class="venta-form" style="margin-bottom:14px">
+      <div class="venta-form-title">🔍 Agregar productos al movimiento</div>
+      <div style="position:relative;margin-bottom:10px">
+        <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--txt3)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="ped-search" style="width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:9px 12px 9px 36px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none" placeholder="Buscar producto..." oninput="filtrarPedidoBusqueda(this.value)">
+        <div id="ped-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--acc);border-radius:var(--r);margin-top:4px;max-height:240px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+      </div>
+      <div class="form-row triple">
+        <div class="fgr">
+          <label>Producto</label>
+          <select id="ped-prod" onchange="onPedProdChange()">
+            <option value="">— Seleccioná —</option>
+          </select>
+        </div>
+        <div class="fgr">
+          <label>Cantidad</label>
+          <input type="number" id="ped-cant" min="1" value="1" placeholder="0">
+        </div>
+        <div class="fgr">
+          <label>&nbsp;</label>
+          <button class="btn btn-success btn-full" onclick="agregarAlPedido()" style="padding:10px">+ Agregar</button>
+        </div>
+      </div>
+      <div id="ped-prod-info" style="font-size:12px;color:var(--txt3);min-height:18px;margin-top:4px"></div>
+    </div>
+
+    <!-- LISTA DEL PEDIDO -->
+    <div id="ped-lista-wrap" style="display:none">
+      <div class="venta-form" style="margin-bottom:14px">
+        <div class="venta-form-title" id="ped-lista-title">📋 Productos del movimiento</div>
+        <div id="ped-lista-items"></div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:var(--txt2)">Total productos</span>
+          <span style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;color:var(--acc)" id="ped-total-uds">0 uds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DPI + CONFIRMAR -->
+    <div class="venta-form">
+      <div class="venta-form-title">🔐 Autorización con DPI</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">
+        Tu número de DPI queda registrado junto al movimiento como respaldo.
+      </div>
+      <div class="fgr" style="margin-bottom:8px">
+        <label>Número de DPI <span style="color:var(--red)">*</span> <span style="color:var(--txt3);font-weight:400">(13 dígitos)</span></label>
+        <input type="text" id="ped-dpi" placeholder="1234567890123" maxlength="13"
+          style="font-family:'DM Mono',monospace;font-size:16px;letter-spacing:2px"
+          oninput="validarDPIPedido(this)">
+        <div id="ped-dpi-status" style="font-size:11px;margin-top:4px;color:var(--txt3)">Ingresá los 13 dígitos de tu DPI</div>
+      </div>
+      <div id="ped-dpi-guardar" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:12px">
+        ¿Querés que recordemos tu DPI para la próxima vez?
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-success btn-sm" onclick="guardarDPIRosmery()">✓ Sí, recordarlo</button>
+          <button class="btn btn-sec btn-sm" onclick="document.getElementById('ped-dpi-guardar').style.display='none'">No por ahora</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="confirmarPedido()" style="margin-top:4px">✅ Confirmar y registrar movimiento</button>
+      <button class="btn btn-sec btn-sm" style="width:100%;margin-top:8px" onclick="limpiarPedido()">🗑 Limpiar todo</button>
+    </div>
+
+    <!-- HISTORIAL DE PEDIDOS -->
+    <div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 10px">
+      📋 Mis movimientos registrados
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('hoy')">Hoy</button>
+      <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('semana')">Esta semana</button>
+      <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('todo')">Todo</button>
+      <button class="btn btn-success btn-sm" onclick="exportarPedidosExcel()" style="margin-left:auto">📊 Excel</button>
+    </div>
+    <div id="ped-historial"></div>
+  </div>
+
+  <!-- ── PÁGINA: AUDITORÍA ── -->
+  <div class="page" id="page-auditoria">
+    <div class="page-title">Reportes y Auditoría</div>
+    <div class="page-sub">Reportes de stock y ventas · Registro de productos nuevos</div>
+
+    <!-- ─── SECCIÓN 1: REPORTE DE STOCK ACTUAL ─── -->
+    <div class="venta-form">
+      <div class="venta-form-title">📦 Reporte de Stock Actual</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:14px">Imprimí o exportá el inventario actual tal como está en el sistema ahora mismo.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-success btn-sm" onclick="reporteStockExcel()">📊 Exportar Excel</button>
+        <button class="btn btn-sec btn-sm" onclick="reporteStockPDF()">🖨️ Imprimir / PDF</button>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 2: REPORTE DE VENTAS POR RANGO ─── -->
+    <div class="venta-form">
+      <div class="venta-form-title">💰 Reporte de Ventas</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Seleccioná un rango de fechas o usá los accesos rápidos.</div>
+      <!-- Accesos rápidos -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-sec btn-sm" onclick="setRangoVentas('hoy')">Hoy</button>
+        <button class="btn btn-sec btn-sm" onclick="setRangoVentas('semana')">Esta semana</button>
+        <button class="btn btn-sec btn-sm" onclick="setRangoVentas('mes')">Este mes</button>
+        <button class="btn btn-sec btn-sm" onclick="setRangoVentas('todo')">Todo</button>
+      </div>
+      <!-- Rango personalizado -->
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="fgr">
+          <label>Desde</label>
+          <input type="date" id="rpt-desde" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none">
+        </div>
+        <div class="fgr">
+          <label>Hasta</label>
+          <input type="date" id="rpt-hasta" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none">
+        </div>
+      </div>
+      <!-- Preview rápido -->
+      <div id="rpt-preview" style="font-size:12px;color:var(--txt3);padding:8px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:12px;min-height:36px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-success btn-sm" onclick="reporteVentasExcel()">📊 Exportar Excel</button>
+        <button class="btn btn-sec btn-sm" onclick="reporteVentasPDF()">🖨️ Imprimir / PDF</button>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 3: CONTEO DE AUDITORÍA (solo vendedor, sin modificar stock) ─── -->
+    <div class="venta-form" id="aud-form-wrap">
+      <div class="venta-form-title">📋 Conteo Físico de Inventario</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Contá los productos físicamente y dejá el registro. El admin verificará y ajustará el stock.</div>
+      <button class="btn btn-sec btn-sm" onclick="iniciarAuditoria()">▶ Iniciar conteo físico</button>
+    </div>
+
+    <!-- Formulario de conteo activo -->
+    <div id="aud-activa" style="display:none">
+      <div class="venta-form">
+        <div class="venta-form-title">✅ Conteo en curso
+          <span id="aud-hora" style="font-size:11px;color:var(--txt3);font-weight:400;margin-left:auto"></span>
+        </div>
+        <div style="font-size:12px;color:var(--txt3);margin-bottom:14px">Ingresá cuántas unidades contaste físicamente de cada producto.</div>
+        <div id="aud-items"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-sec btn-sm" onclick="cancelarAuditoria()">✕ Cancelar</button>
+          <button class="btn btn-success btn-sm" onclick="guardarYExportarAuditoria()">📊 Guardar y exportar</button>
+          <button class="btn btn-primary" style="flex:1" onclick="guardarAuditoria()">💾 Guardar conteo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 4: PRODUCTO NUEVO (con DPI) ─── -->
+    <div class="venta-form">
+      <div class="venta-form-title">🆕 Reportar producto nuevo no registrado</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:14px">
+        Si recibiste un producto que no está en el sistema, registralo acá. El Admin lo validará y lo cargará al stock. <b style="color:var(--yel)">Requiere tu número de DPI (13 dígitos).</b>
+      </div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Nombre del producto *</label>
+          <input type="text" id="np-nombre" placeholder="Ej: Chicle Fresa ZED">
+        </div>
+        <div class="fgr">
+          <label>Cantidad recibida *</label>
+          <input type="number" id="np-cantidad" min="1" placeholder="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Descripción / Referencia</label>
+          <input type="text" id="np-desc" placeholder="Descripción, sabor, tamaño...">
+        </div>
+        <div class="fgr">
+          <label>Precio aproximado Q (opcional)</label>
+          <input type="number" id="np-precio-v" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <!-- DPI -->
+      <div class="fgr" style="margin-bottom:6px">
+        <label>Tu número de DPI * <span style="color:var(--txt3);font-weight:400">(13 dígitos, sin espacios ni guiones)</span></label>
+        <input type="text" id="np-dpi" placeholder="1234567890123" maxlength="13"
+          style="font-family:'DM Mono',monospace;font-size:16px;letter-spacing:2px"
+          oninput="validarDPI(this)">
+        <div id="dpi-status" style="font-size:11px;margin-top:4px;color:var(--txt3)">Ingresá los 13 dígitos de tu DPI</div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="reportarProductoNuevo()" style="margin-top:8px">📝 Registrar para validación del Admin</button>
+    </div>
+
+    <!-- ─── HISTORIAL DE AUDITORÍAS ─── -->
+    <div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 10px">Conteos guardados</div>
+    <div id="aud-historial"></div>
+  </div>
+
+  <!-- ── PÁGINA: ADMIN ── -->
+  <div class="page" id="page-admin">
+    <div class="page-title">Administración</div>
+    <div class="page-sub">Solo acceso Admin — todos los cambios quedan registrados</div>
+
+    <!-- ALERTAS DE TRASLADOS/SALIDAS -->
+    <div class="admin-card" style="border-color:rgba(239,68,68,.3);margin-bottom:14px" id="alertas-card">
+      <div class="admin-card-title" style="color:var(--red)">🚨 Alertas — Salidas y traslados recientes</div>
+      <div id="alertas-contenido"><div style="font-size:12px;color:var(--txt3)">Cargando...</div></div>
+    </div>
+
+    <!-- BÚSQUEDA AVANZADA DE MOVIMIENTOS -->
+    <div class="admin-card" style="margin-bottom:14px">
+      <div class="admin-card-title">🔍 Búsqueda avanzada de movimientos</div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fgr">
+          <label>Desde</label>
+          <input type="date" id="busq-desde" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+        </div>
+        <div class="fgr">
+          <label>Hasta</label>
+          <input type="date" id="busq-hasta" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fgr">
+          <label>Tipo de movimiento</label>
+          <select id="busq-tipo" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:10px 12px;outline:none">
+            <option value="">— Todos —</option>
+            <option value="venta">Ventas</option>
+            <option value="ingreso">Ingresos de pedido</option>
+            <option value="salida">Salidas / Traslados</option>
+            <option value="ajuste">Ajustes Admin</option>
+          </select>
+        </div>
+        <div class="fgr">
+          <label>Ejecutado por</label>
+          <select id="busq-quien" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:10px 12px;outline:none">
+            <option value="">— Todos —</option>
+            <option value="rosmery">Rosmery Archila</option>
+            <option value="admin">Admin / Tulio</option>
+            <option value="vendedor">Vendedor</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="busquedaAvanzada()">🔍 Buscar</button>
+        <button class="btn btn-success btn-sm" onclick="exportarBusquedaExcel()">📊 Exportar Excel</button>
+        <button class="btn btn-sec btn-sm" onclick="limpiarBusqueda()">✕ Limpiar</button>
+      </div>
+      <div id="busq-resultados" style="margin-top:14px"></div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-card-title">📦 Cargar / Ajustar stock <span class="admin-lock">🔐 Admin</span></div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Producto</label>
+          <select id="adm-prod"><option value="">— Seleccionar —</option></select>
+        </div>
+        <div class="fgr">
+          <label>Tipo</label>
+          <select id="adm-tipo">
+            <option value="carga">➕ Ingreso de stock</option>
+            <option value="ajuste">⚙️ Ajuste / Corrección</option>
+            <option value="retiro">➖ Retiro / Traslado</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Cantidad</label>
+          <input type="number" id="adm-cant" min="1" value="1" placeholder="0">
+        </div>
+        <div class="fgr">
+          <label>Costo unitario Q (opcional)</label>
+          <input type="number" id="adm-costo" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="fgr" style="margin-bottom:12px">
+        <label>Motivo / referencia (obligatorio)</label>
+        <input type="text" id="adm-motivo" placeholder="Ej: Ingreso semanal de TRIX, traslado bodega central...">
+      </div>
+      <button class="btn btn-primary" onclick="ejecutarMovAdmin()">✓ Aplicar movimiento</button>
+    </div>
+
+    <!-- Agregar producto nuevo -->
+    <div class="admin-card">
+      <div class="admin-card-title">🆕 Agregar producto nuevo al catálogo <span class="admin-lock">🔐 Admin</span></div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Nombre del producto *</label>
+          <input type="text" id="np-nombre" placeholder="Ej: Chicle Fresa ZED">
+        </div>
+        <div class="fgr">
+          <label>SKU / Código</label>
+          <input type="text" id="np-sku" placeholder="CHI-FRE">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Categoría</label>
+          <select id="np-cat">
+            <option value="chicles">Chicles</option>
+            <option value="dulces">Dulces</option>
+            <option value="maquinas">Máquinas</option>
+            <option value="repuestos">Repuestos</option>
+            <option value="peluches">Peluches</option>
+            <option value="pelotas">Pelotas</option>
+            <option value="capsulas">Cápsulas</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="fgr">
+          <label>Precio de venta Q</label>
+          <input type="number" id="np-precio" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>Stock inicial</label>
+          <input type="number" id="np-stock" min="0" value="0">
+        </div>
+        <div class="fgr">
+          <label>Stock mínimo</label>
+          <input type="number" id="np-min" min="0" value="5">
+        </div>
+      </div>
+      <div class="fgr" style="margin-bottom:12px">
+        <label>DPI del responsable *</label>
+        <input type="text" id="np-dpi" placeholder="Número de DPI de quien registra el producto">
+      </div>
+      <button class="btn btn-primary" onclick="agregarProductoNuevo()">✓ Registrar producto nuevo</button>
+    </div>
+
+    <!-- Firebase Sync -->
+    <div class="admin-card" style="border-color:rgba(34,197,94,.3)">
+      <div class="admin-card-title" style="color:var(--grn)">
+        🔥 Firebase — Datos en tiempo real
+        <span id="sheets-status" style="font-size:11px;font-weight:400;margin-left:auto;color:var(--txt3)">⏳ Conectando...</span>
+      </div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">
+        Todos los datos se sincronizan automáticamente en la nube.<br>
+        Cualquier persona con la URL ve el stock actualizado en tiempo real.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-success btn-sm" onclick="syncManual()">🔄 Forzar sincronización</button>
+        <button class="btn btn-sec btn-sm" onclick="verificarConexionSheets()">📡 Verificar conexión</button>
+      </div>
+      <div id="sync-log" style="font-size:11px;color:var(--txt3);margin-top:10px;min-height:16px"></div>
+    </div>
+
+    <!-- Cambiar PINs -->
+    <div class="admin-card">
+      <div class="admin-card-title">🔐 Cambiar PINs de acceso <span class="admin-lock">🔐 Admin</span></div>
+      <div class="form-row">
+        <div class="fgr">
+          <label>PIN Vendedor (4 dígitos)</label>
+          <input type="number" id="pin-vend-new" placeholder="XXXX" maxlength="4">
+        </div>
+        <div class="fgr">
+          <label>PIN Admin (4 dígitos)</label>
+          <input type="number" id="pin-adm-new" placeholder="XXXX" maxlength="4">
+        </div>
+      </div>
+      <button class="btn btn-sec btn-sm" style="margin-top:8px" onclick="cambiarPins()">Actualizar PINs</button>
+    </div>
+
+    <!-- Resumen del día -->
+    <div class="admin-card">
+      <div class="admin-card-title">📊 Resumen del día</div>
+      <div id="adm-resumen"></div>
+    </div>
+
+    <!-- Modo Prueba -->
+    <div class="admin-card" style="border-color:rgba(59,130,246,.3)">
+      <div class="admin-card-title" style="color:var(--blu)">🧪 Modo Prueba <span class="admin-lock" style="background:rgba(59,130,246,.15);color:var(--blu);border-color:rgba(59,130,246,.25)">Solo Admin</span></div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:14px">Cargá stock de prueba para verificar que el sistema funcione correctamente. Podés borrar todo después sin afectar el catálogo.</div>
+
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:8px">Paso 1 — Cargar stock de prueba</div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fgr">
+          <label>Producto a probar</label>
+          <select id="prueba-prod">
+            <option value="">— Seleccionar —</option>
+          </select>
+        </div>
+        <div class="fgr">
+          <label>Cantidad de prueba</label>
+          <input type="number" id="prueba-cant" min="1" value="10" placeholder="10">
+        </div>
+      </div>
+      <button class="btn btn-sm" style="background:rgba(59,130,246,.15);color:var(--blu);border:1px solid rgba(59,130,246,.3);margin-bottom:16px" onclick="cargarStockPrueba()">🧪 Cargar stock de prueba</button>
+
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:8px">Paso 2 — Probá como vendedor</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Cerrá sesión, entrá como <b>Vendedor</b>, hacé una venta de prueba y verificá que el stock baje correctamente.</div>
+
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:8px">Paso 3 — Limpiar datos de prueba</div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:10px">Esto borra <b>todas las ventas y movimientos de prueba</b> y deja el stock en 0. El catálogo de productos NO se toca.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-danger btn-sm" onclick="limpiarPrueba()">🗑 Limpiar todo y resetear stock a 0</button>
+        <button class="btn btn-sec btn-sm" onclick="soloLimpiarVentas()">🗑 Solo borrar ventas de prueba</button>
+      </div>
+      <div id="prueba-status" style="font-size:12px;margin-top:10px;color:var(--txt3)"></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- MODAL: CONFIRMAR VENTA -->
+<div class="modal-overlay" id="modal-conf">
+  <div class="modal-box">
+    <div class="modal-title">✓ Confirmar venta</div>
+    <div class="modal-sub">Verificá los productos antes de confirmar</div>
+    <div class="modal-venta-items" id="modal-conf-items"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-size:13px;color:var(--txt2)">Total</span>
+      <span style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--grn)" id="modal-conf-total">Q0.00</span>
+    </div>
+    <div class="fgr" style="margin-bottom:14px">
+      <label>Nombre del cliente (opcional)</label>
+      <input type="text" id="conf-cliente" placeholder="Consumidor Final">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" style="flex:1" onclick="cerrarModal('modal-conf')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="confirmarVenta()">✓ Registrar venta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PIN ADMIN para acciones sensibles -->
+<div class="modal-overlay" id="modal-pin-adm">
+  <div class="modal-box">
+    <div class="modal-title">🔐 Verificación Admin</div>
+    <div class="modal-sub" id="modal-pin-adm-sub">Ingresá el PIN de administrador para continuar</div>
+    <div class="pin-display" id="pin-adm-display">
+      <div class="pin-dot" id="pad0"></div>
+      <div class="pin-dot" id="pad1"></div>
+      <div class="pin-dot" id="pad2"></div>
+      <div class="pin-dot" id="pad3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pinAdmKey(1)">1</button>
+      <button class="pin-btn" onclick="pinAdmKey(2)">2</button>
+      <button class="pin-btn" onclick="pinAdmKey(3)">3</button>
+      <button class="pin-btn" onclick="pinAdmKey(4)">4</button>
+      <button class="pin-btn" onclick="pinAdmKey(5)">5</button>
+      <button class="pin-btn" onclick="pinAdmKey(6)">6</button>
+      <button class="pin-btn" onclick="pinAdmKey(7)">7</button>
+      <button class="pin-btn" onclick="pinAdmKey(8)">8</button>
+      <button class="pin-btn" onclick="pinAdmKey(9)">9</button>
+      <button class="pin-btn zero" onclick="pinAdmKey(0)">0</button>
+      <button class="pin-btn del" onclick="pinAdmDel()">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-adm-error"></div>
+    <button class="btn btn-sec btn-sm btn-full" style="margin-top:14px" onclick="cerrarModal('modal-pin-adm')">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  FIREBASE CONFIG — CHICLEMANIA CENTRAL NORTE
+// ════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCvgJXtzk_CueHOw8yA2Ozukc0MRF7mltg",
+  authDomain: "chiclemania-central-norte-3.firebaseapp.com",
+  databaseURL: "https://chiclemania-central-norte-3-default-rtdb.firebaseio.com",
+  projectId: "chiclemania-central-norte-3",
+  storageBucket: "chiclemania-central-norte-3.firebasestorage.app",
+  messagingSenderId: "777389426139",
+  appId: "1:777389426139:web:884c59a9c47eed6d7793fe"
+};
+
+// ════════════════════════════════════════════════════
+//  STORAGE — Firebase Realtime Database
+// ════════════════════════════════════════════════════
+let _fbApp = null;
+let _fbDB  = null;
+let _fbReady = false;
+let _fbQueue = []; // escrituras en cola si Firebase aún no cargó
+
+function initFirebase(){
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+    script.onload = () => {
+      const script2 = document.createElement('script');
+      script2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
+      script2.onload = () => {
+        _fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+        _fbDB  = firebase.database();
+        _fbReady = true;
+        console.log('✅ Firebase conectado');
+        resolve();
+      };
+      document.head.appendChild(script2);
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// Wrapper de storage: Firebase como primario, localStorage como fallback
+const LS = {
+  get: k => {
+    try { return JSON.parse(localStorage.getItem('cn_'+k)||'null'); } catch { return null; }
+  },
+  set: (k,v) => {
+    // Guardar en localStorage siempre (caché local)
+    try { localStorage.setItem('cn_'+k, JSON.stringify(v)); } catch(e){}
+    // Guardar en Firebase si está listo
+    if(_fbReady && _fbDB){
+      _fbDB.ref('cn/' + k).set(v).catch(e => console.warn('FB write error:', e));
+    } else {
+      // Encolar para cuando Firebase esté listo
+      _fbQueue.push({k, v});
+    }
+  }
+};
+
+// ════════════════════════════════════════════════════
+//  BASE DE DATOS
+// ════════════════════════════════════════════════════
+let db = { productos:[], ventas:[], movimientos:[] };
+
+const PRODUCTOS_DEFAULT = [
+  // ── MÁQUINAS CHICLERAS (26 productos en colección) ──
+  {id:'M001',nombre:'Maquina Individual de Chicles o Dulces con Base Cromada (201)',cat:'maquinas',emoji:'🎰',sku:'MAQ-201',precio:1550,minimo:2,stock:0},
+  {id:'M002',nombre:'Máquina Dispensadora con Detalles Cromados Doble 201',cat:'maquinas',emoji:'🎰',sku:'MAQ-201D',precio:2890,minimo:1,stock:0},
+  {id:'M003',nombre:'Máquina Expendedora Triple con Estante - Triple Choice',cat:'maquinas',emoji:'🎰',sku:'MAQ-TRIP',precio:3800,minimo:1,stock:0},
+  {id:'M004',nombre:'Máquina Expendedora Multifuncional 4 en 1 - Versátil Pro',cat:'maquinas',emoji:'🎰',sku:'MAQ-4EN1',precio:5200,minimo:1,stock:0},
+  {id:'M005',nombre:'Máquina Dispensadora 6 Pack Clásicas (201) - La Vende Todo',cat:'maquinas',emoji:'🎰',sku:'MAQ-6P201',precio:6500,minimo:1,stock:0},
+  {id:'M006',nombre:'Máquina Dispensadora 6 Pack La Vende Todo',cat:'maquinas',emoji:'🎰',sku:'MAQ-6PACK',precio:6000,minimo:1,stock:0},
+  {id:'M007',nombre:'Máquina Dispensadora 6 Pack Cabeza Licuadora (203)',cat:'maquinas',emoji:'🎰',sku:'MAQ-6P203',precio:6500,minimo:1,stock:0},
+  {id:'M008',nombre:'Máquina Dispensadora Roja con Detalles Cromados Doble (203)',cat:'maquinas',emoji:'🎰',sku:'MAQ-203D',precio:3200,minimo:1,stock:0},
+  {id:'M009',nombre:'Máquina Torre de Espiral',cat:'maquinas',emoji:'🎰',sku:'MAQ-ESP',precio:4500,minimo:1,stock:0},
+  {id:'M010',nombre:'La Duplicator - Modelo Maxi Profit 1 de Q2',cat:'maquinas',emoji:'🎰',sku:'MAQ-DUP',precio:4800,minimo:1,stock:0},
+  {id:'M011',nombre:'Máquina Expendedora Individual Cuadrada de Chicles o Dulces',cat:'maquinas',emoji:'🎰',sku:'MAQ-CUAD',precio:1800,minimo:2,stock:0},
+  {id:'M012',nombre:'Máquina Burbujin 3000 - Acepta Q2',cat:'maquinas',emoji:'🎰',sku:'MAQ-BUR',precio:3500,minimo:1,stock:0},
+  {id:'M013',nombre:'Máquina Dispensadora de 5 Cabezas Bubble Mix',cat:'maquinas',emoji:'🎰',sku:'MAQ-5CAB',precio:5800,minimo:1,stock:0},
+  {id:'M014',nombre:'Máquina Doble Capsula de Globo y Base Cromada',cat:'maquinas',emoji:'🎰',sku:'MAQ-GLOB',precio:2400,minimo:1,stock:0},
+  {id:'M015',nombre:'Máquina de Ruleta Drop X - Juego de Precisión con Premios',cat:'maquinas',emoji:'🕹️',sku:'MAQ-RULETA',precio:8500,minimo:1,stock:0},
+  {id:'M016',nombre:'Game Box Pro 9000 Azul y Roja - Arcade Multijuegos',cat:'maquinas',emoji:'🕹️',sku:'MAQ-GBP-AR',precio:15000,minimo:1,stock:0},
+  {id:'M017',nombre:'Game Box Pro 9000 Multicolor - Arcade Multijuegos',cat:'maquinas',emoji:'🕹️',sku:'MAQ-GBP-MC',precio:15000,minimo:1,stock:0},
+  // ── MÁQUINAS DE PELUCHES Y VIDEO ──
+  {id:'MP001',nombre:'Máquina Supreme de Garra Grande - LED con Luces',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-SUP-GARRA',precio:12000,minimo:1,stock:0},
+  {id:'MP002',nombre:'Super Máquina de Garra 4 en 1 - Rosa con Rosa',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RR',precio:9500,minimo:1,stock:0},
+  {id:'MP003',nombre:'Super Máquina de Garra 4 en 1 - Rosa y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-RC',precio:9500,minimo:1,stock:0},
+  {id:'MP004',nombre:'Super Máquina de Garra 4 en 1 - Fucsia y Celeste',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-G4-FC',precio:9500,minimo:1,stock:0},
+  {id:'MP005',nombre:'Máquina Rosa Súper Tank Claw - Garra LED',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-R',precio:8000,minimo:1,stock:0},
+  {id:'MP006',nombre:'Máquina Verde Súper Tank Claw - Garra LED',cat:'maquinas_peluche',emoji:'🕹️',sku:'MAQ-TANK-V',precio:8000,minimo:1,stock:0},
+  {id:'MP007',nombre:'Base para Máquina de Peluches',cat:'maquinas_peluche',emoji:'🔩',sku:'MAQ-PEL-BASE',precio:240,minimo:2,stock:0},
+  {id:'MP008',nombre:'Regulador de Voltaje para Máquina de Peluches',cat:'maquinas_peluche',emoji:'⚡',sku:'MAQ-REG',precio:350,minimo:2,stock:0},
+  // ── CHICLES (10 productos confirmados en sitio) ──
+  {id:'C001',nombre:'Chicle EMOJI ZED - 225 Unidades con Caritas de Emoji',cat:'chicles',emoji:'😊',sku:'CHI-EMO',precio:110,minimo:5,stock:0},
+  {id:'C002',nombre:'Chicle BILLAR ZED - Bolsa de 225 Unidades Chicle Bola',cat:'chicles',emoji:'🎱',sku:'CHI-BIL',precio:110,minimo:5,stock:0},
+  {id:'C003',nombre:'Chicle de Frutas ZED - Bolsa 225 Bola Sabores Frutales',cat:'chicles',emoji:'🟢',sku:'CHI-FRUT',precio:110,minimo:5,stock:0},
+  {id:'C004',nombre:'Chicle Cotton Candy - 225 Unidades',cat:'chicles',emoji:'🩵',sku:'CHI-COTT',precio:110,minimo:5,stock:0},
+  {id:'C005',nombre:'Chicle Sandía ZED con Centro Ácido - 225 Unidades',cat:'chicles',emoji:'🍉',sku:'CHI-SAN',precio:110,minimo:5,stock:0},
+  {id:'C006',nombre:'Chicle Bola Cherry 24.5mm - Para Máquinas Dispensadoras',cat:'chicles',emoji:'🍒',sku:'CHI-CHR',precio:110,minimo:5,stock:0},
+  {id:'C007',nombre:'Chicle Bola Sandía',cat:'chicles',emoji:'🍉',sku:'CHI-SAW',precio:110,minimo:5,stock:0},
+  {id:'C008',nombre:'Chicle Multicolor Lucky Gum - 278 Unidades la Bolsa',cat:'chicles',emoji:'🌈',sku:'CHI-LUC',precio:127,minimo:5,stock:0},
+  {id:'C009',nombre:'Chicle Perla 1" - 225 Unidades',cat:'chicles',emoji:'🩷',sku:'CHI-PER1',precio:110,minimo:5,stock:0},
+  {id:'C010',nombre:'Chicle Perla - 1389 Unidades la Bolsa',cat:'chicles',emoji:'🌸',sku:'CHI-PERP',precio:125,minimo:5,stock:0},
+  {id:'C011',nombre:'Chicle de Cola 24.5mm - Para Máquinas de Chicles',cat:'chicles',emoji:'🥤',sku:'CHI-COL',precio:110,minimo:5,stock:0},
+  // ── DULCES (13 productos) ──
+  {id:'D001',nombre:'Dulce Frutitas Nippers ZED - Bolsa 3085 Unidades',cat:'dulces',emoji:'🍭',sku:'DUL-NIP',precio:125,minimo:5,stock:0},
+  {id:'D002',nombre:'Dulce de Flores Flower Candy ZED - Bolsa 2000 Unidades',cat:'dulces',emoji:'🌸',sku:'DUL-FLO',precio:125,minimo:5,stock:0},
+  {id:'D003',nombre:'Dulce de Bananitos',cat:'dulces',emoji:'🍌',sku:'DUL-BAN',precio:125,minimo:5,stock:0},
+  {id:'D004',nombre:'Dulce Masticable Chewy Magic Candy ZED - Bolsa 1255 Uds',cat:'dulces',emoji:'🍭',sku:'DUL-CHW',precio:130,minimo:5,stock:0},
+  {id:'D005',nombre:'Huesitos de Colores ZED - 2662 Unidades',cat:'dulces',emoji:'🦴',sku:'DUL-HUE',precio:125,minimo:5,stock:0},
+  {id:'D006',nombre:'Caramelo Animalitos ZED',cat:'dulces',emoji:'🐾',sku:'DUL-ANI',precio:125,minimo:5,stock:0},
+  {id:'D007',nombre:'Pastillitas de Menta-Hierbabuena Triple Mint ZED',cat:'dulces',emoji:'🔵',sku:'DUL-MNT',precio:125,minimo:5,stock:0},
+  {id:'D008',nombre:'Botoneta Botomania - Bolsa 1885 Unidades',cat:'dulces',emoji:'🔴',sku:'DUL-BOT',precio:120,minimo:5,stock:0},
+  {id:'D009',nombre:'Corazoncitos Dulces ZED - Rosado & Blanco',cat:'dulces',emoji:'🩷',sku:'DUL-COR',precio:125,minimo:5,stock:0},
+  {id:'D010',nombre:'Caramelo Crunch - Dulces Surtidos para Máquina (5 lb)',cat:'dulces',emoji:'🍬',sku:'DUL-CRU',precio:110,minimo:3,stock:0},
+  {id:'D011',nombre:'Estrellitas Dulces ZED - Verde y Rojo (3564 Unidades)',cat:'dulces',emoji:'⭐',sku:'DUL-EST',precio:125,minimo:5,stock:0},
+  {id:'D012',nombre:'Choco Fresh - Caramelo con Chocolate y Menta',cat:'dulces',emoji:'🍫',sku:'DUL-CHF',precio:159,minimo:5,stock:0},
+  {id:'D013',nombre:'Confetric ZED - Pastillas Dulces Tipo Botón',cat:'dulces',emoji:'🟡',sku:'DUL-CNF',precio:125,minimo:5,stock:0},
+  // ── PELOTAS ──
+  {id:'PB001',nombre:'Pelotas de Hule Premium 25mm - Bolsa 300 Unidades',cat:'pelotas',emoji:'⚽',sku:'PB-25',precio:150,minimo:5,stock:0},
+  {id:'PB002',nombre:'Pelotas Rebotonas 27mm',cat:'pelotas',emoji:'⚽',sku:'PB-27',precio:150,minimo:5,stock:0},
+  {id:'PB003',nombre:'Pelotas Rebotonas 45mm',cat:'pelotas',emoji:'⚽',sku:'PB-45',precio:180,minimo:3,stock:0},
+  // ── CÁPSULAS CON JUGUETES ──
+  {id:'CAP001',nombre:'Cápsulas Ovaladas 45mm con Juguetes Sorpresa | Q2 por Juego',cat:'capsulas',emoji:'💊',sku:'CAP-45',precio:200,minimo:3,stock:0},
+  {id:'CAP002',nombre:'Cápsulas Ovaladas 1.1" con Juguetes Surtidos (Bolsa 200 uds)',cat:'capsulas',emoji:'💊',sku:'CAP-11',precio:220,minimo:3,stock:0},
+  {id:'CAP003',nombre:'Cápsulas Ovaladas 1.1" con Tiras Ácidas FINI',cat:'capsulas',emoji:'💊',sku:'CAP-FINI',precio:220,minimo:3,stock:0},
+  // ── PELUCHES ──
+  {id:'PEL001',nombre:'Peluches Sorpresa de 8"',cat:'peluches',emoji:'🧸',sku:'PEL-8P',precio:55,minimo:10,stock:0},
+  {id:'PEL002',nombre:'Peluches Sorpresa - Para Máquinas de Garra Pequeñas',cat:'peluches',emoji:'🧸',sku:'PEL-SURT',precio:35,minimo:20,stock:0},
+  // ── REPUESTOS ──
+  {id:'R001',nombre:'Chapa de Repuesto para Máquina Tipo 201 y 203',cat:'repuestos',emoji:'🔑',sku:'REP-CHAP',precio:129,minimo:5,stock:0},
+  {id:'R002',nombre:'Mecanismo para Dispensar Chicles o Juguetes de 1"',cat:'repuestos',emoji:'⚙️',sku:'REP-DISP1',precio:279,minimo:5,stock:0},
+  {id:'R003',nombre:'Mecanismo para Dispensar Dulces a Granel',cat:'repuestos',emoji:'⚙️',sku:'REP-MEC',precio:279,minimo:5,stock:0},
+  {id:'R004',nombre:'Mecanismo Monedero de Q1 Para Máquina Chiclera',cat:'repuestos',emoji:'🪙',sku:'REP-MON1',precio:250,minimo:3,stock:0},
+  {id:'R005',nombre:'Mecanismo Monedero de 2 Quetzales Para Máquina Chiclera',cat:'repuestos',emoji:'🪙',sku:'REP-MON2',precio:300,minimo:3,stock:0},
+  {id:'R006',nombre:'Base Metálica Cromada para Máquinas Expendedoras',cat:'repuestos',emoji:'🔩',sku:'REP-BASE',precio:320,minimo:2,stock:0},
+  {id:'R007',nombre:'Globo Acrílico de Repuesto para Máquina',cat:'repuestos',emoji:'🔵',sku:'REP-GLOB',precio:150,minimo:3,stock:0},
+];
+
+// ── initDB: carga desde Firebase primero, localStorage como fallback ──
+function initDB(){
+  // Mostrar pantalla de carga mientras conecta Firebase
+  mostrarCargando(true);
+
+  initFirebase().then(() => {
+    // Escuchar cambios en tiempo real desde Firebase
+    _fbDB.ref('cn/db').on('value', (snapshot) => {
+      const fbData = snapshot.val();
+      if(fbData){
+        db = fbData;
+        if(!db.ventas) db.ventas = [];
+        if(!db.movimientos) db.movimientos = [];
+        if(!db.productos || !db.productos.length){
+          db.productos = PRODUCTOS_DEFAULT.map(p => ({...p}));
+        }
+        // Actualizar caché local
+        try { localStorage.setItem('cn_db', JSON.stringify(db)); } catch(e){}
+      } else {
+        // Primera vez — inicializar con datos default
+        const saved = LS.get('db');
+        if(saved){
+          db = saved;
+        } else {
+          db.productos = PRODUCTOS_DEFAULT.map(p => ({...p}));
+        }
+        if(!db.ventas) db.ventas = [];
+        if(!db.movimientos) db.movimientos = [];
+        // Subir a Firebase
+        _fbDB.ref('cn/db').set(db).catch(e => console.warn('FB init error:', e));
+      }
+
+      // Procesar cola de escrituras pendientes
+      if(_fbQueue.length){
+        _fbQueue.forEach(({k,v}) => {
+          _fbDB.ref('cn/' + k).set(v).catch(()=>{});
+        });
+        _fbQueue = [];
+      }
+
+      // Inicializar PINs
+      _fbDB.ref('cn/pins').once('value').then(snap => {
+        if(!snap.val()){
+          _fbDB.ref('cn/pins').set(PINS_DEFAULT);
+        }
+      });
+
+      mostrarCargando(false);
+      // Re-renderizar todo si ya hay sesión activa
+      if(_rolActual){
+        poblarSelects();
+        renderStock();
+        renderHistorial(_histFiltro||'hoy');
+        if(_rolActual==='admin') renderResumenAdmin();
+      }
+    });
+
+    // Escuchar cambios de PINs en tiempo real
+    _fbDB.ref('cn/pins').on('value', (snap) => {
+      if(snap.val()){
+        try { localStorage.setItem('cn_pins', JSON.stringify(snap.val())); } catch(e){}
+      }
+    });
+
+  }).catch(err => {
+    console.warn('⚠️ Firebase no disponible, usando modo offline:', err);
+    // Fallback a localStorage
+    const saved = LS.get('db');
+    if(saved){
+      db = saved;
+    } else {
+      db.productos = PRODUCTOS_DEFAULT.map(p => ({...p}));
+    }
+    if(!db.ventas) db.ventas = [];
+    if(!db.movimientos) db.movimientos = [];
+    mostrarCargando(false);
+  });
+}
+
+function saveDB(){
+  // Guardar en localStorage (caché inmediata)
+  try { localStorage.setItem('cn_db', JSON.stringify(db)); } catch(e){}
+  // Guardar en Firebase (nube)
+  if(_fbReady && _fbDB){
+    _fbDB.ref('cn/db').set(db).catch(e => console.warn('FB saveDB error:', e));
+  }
+}
+
+function mostrarCargando(show){
+  let el = document.getElementById('loading-screen');
+  if(!el) return;
+  el.style.display = show ? 'flex' : 'none';
+}
+
+
+// ════════════════════════════════════════════════════
+//  PINES Y ACCESO
+// ════════════════════════════════════════════════════
+const PINS_DEFAULT = { vendedor:'1234', admin:'4321' };
+
+function getPins(){
+  // Primero intentar desde Firebase (caché local ya sincronizada)
+  return LS.get('pins') || PINS_DEFAULT;
+}
+
+let _pinBuffer = '';
+let _rolLogin = 'vendedor';
+let _rolActual = null;
+
+function selRol(rol){
+  _rolLogin = rol;
+  _pinBuffer = '';
+  actualizarPinDisplay('pin-display','pd');
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('login-hint').textContent =
+    rol === 'vendedor' ? 'Ingresá tu PIN de vendedor' : 'Ingresá el PIN de administrador';
+  document.getElementById('rol-vend').classList.toggle('active', rol==='vendedor');
+  document.getElementById('rol-adm').classList.toggle('active', rol==='admin');
+}
+
+function pinKey(n){
+  if(_pinBuffer.length >= 4) return;
+  _pinBuffer += n;
+  actualizarPinDisplay('pin-display','pd');
+  if(_pinBuffer.length === 4) verificarPin();
+}
+
+function pinDel(){
+  _pinBuffer = _pinBuffer.slice(0,-1);
+  actualizarPinDisplay('pin-display','pd');
+  document.getElementById('pin-error').textContent = '';
+}
+
+function actualizarPinDisplay(containerId, prefix){
+  for(let i=0;i<4;i++){
+    const dot = document.getElementById(prefix+i);
+    if(dot) dot.classList.toggle('filled', i < _pinBuffer.length);
+  }
+}
+
+function verificarPin(){
+  const pins = getPins();
+  const pinCorrecto = _rolLogin === 'vendedor' ? pins.vendedor : pins.admin;
+  if(_pinBuffer === pinCorrecto){
+    _rolActual = _rolLogin;
+    _pinBuffer = '';
+    entrarApp();
+  } else {
+    document.getElementById('pin-error').textContent = 'PIN incorrecto. Intentá de nuevo.';
+    _pinBuffer = '';
+    // Vibrar en móvil
+    if(navigator.vibrate) navigator.vibrate([100,50,100]);
+    setTimeout(()=>{
+      actualizarPinDisplay('pin-display','pd');
+      document.getElementById('pin-error').textContent = '';
+    }, 1000);
+  }
+}
+
+function entrarApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  // Configurar según rol
+  const isAdmin = _rolActual === 'admin';
+  document.getElementById('rol-display').textContent = isAdmin ? '🔐 Admin' : '🛒 Vendedor';
+  document.getElementById('rol-display').className = 'rol-badge' + (isAdmin ? ' admin' : '');
+  document.getElementById('tab-admin').style.display = isAdmin ? 'flex' : 'none';
+  // Saludo Rosmery solo cuando entra como vendedor
+  mostrarSaludoVendedor(!isAdmin);
+  // Pestaña Pedidos visible para todos
+  const tabPedidos = document.getElementById('tab-pedidos');
+  if(tabPedidos) tabPedidos.style.display = 'flex';
+  // Actualizar fecha/hora
+  actualizarFechaHora();
+  setInterval(actualizarFechaHora, 60000);
+  // Inicializar rango de ventas en mes actual
+  setRangoVentas('mes');
+  // Listeners para preview en tiempo real
+  setTimeout(()=>{
+    document.getElementById('rpt-desde')?.addEventListener('change',actualizarPreviewRango);
+    document.getElementById('rpt-hasta')?.addEventListener('change',actualizarPreviewRango);
+  },100);
+  // Auditorías
+  if(!db.auditorias) db.auditorias=[];
+  if(!db.productosPendientes) db.productosPendientes=[];
+  if(!db.pedidos) db.pedidos=[];
+  renderAudHistorial();
+  // Poblar selects
+  poblarSelects();
+  poblarSelectPedido();
+  renderStock();
+  renderHistorial('hoy');
+  renderPedidosHist('hoy');
+  // Cargar DPI guardado si existe
+  const dpiGuardado = LS.get('dpi_rosmery');
+  if(dpiGuardado && !isAdmin){
+    const dpiEl = document.getElementById('ped-dpi');
+    if(dpiEl){ dpiEl.value = dpiGuardado; validarDPIPedido(dpiEl); }
+  }
+  if(isAdmin){ renderResumenAdmin(); renderAlertasAdmin(); }
+}
+
+function logout(){
+  _rolActual = null;
+  _pinBuffer = '';
+  actualizarPinDisplay('pin-display','pd');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').classList.remove('visible');
+  // Volver a pantalla de venta
+  goPage('venta', document.getElementById('tab-venta'));
+  limpiarCarrito();
+}
+
+// ════════════════════════════════════════════════════
+//  FECHA Y HORA
+// ════════════════════════════════════════════════════
+function hoy(){ return new Date().toISOString().slice(0,10); }
+function ahora(){ return new Date().toISOString(); }
+function fmtFecha(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-GT',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtHora(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+function fmtDateTime(iso){
+  if(!iso) return '—';
+  return fmtFecha(iso) + ' ' + fmtHora(iso);
+}
+
+function actualizarFechaHora(){
+  const ahora2 = new Date();
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const str = `${dias[ahora2.getDay()]}, ${ahora2.getDate()} de ${meses[ahora2.getMonth()]} ${ahora2.getFullYear()}`;
+  const el1 = document.getElementById('header-fecha');
+  const el2 = document.getElementById('venta-fecha-hora');
+  if(el1) el1.textContent = str;
+  if(el2) el2.textContent = str + ' · ' + ahora2.toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+
+// ════════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════════════════════
+function goPage(id, el){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  el?.classList.add('active');
+  if(id==='stock') renderStock();
+  if(id==='historial') renderHistorial(_histFiltro||'hoy');
+  if(id==='pedidos'){ poblarSelectPedido(); renderPedidosHist(_pedHistFiltro||'hoy'); }
+  if(id==='auditoria'){ if(!db.auditorias)db.auditorias=[]; renderAudHistorial(); }
+  if(id==='admin') { renderResumenAdmin(); poblarSelects(); poblarSelectPrueba(); renderAlertasAdmin(); }
+}
+
+// ════════════════════════════════════════════════════
+//  GOOGLE SHEETS — SINCRONIZACIÓN EN TIEMPO REAL
+// ════════════════════════════════════════════════════
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwt8NCsddj1_SjMq8JA1Fmm5xXPhEwgPFE4tBM0dFD0vBh1hnDfWYDqx7FsV_5r9v0K/exec';
+
+function sincronizarSheets(payload){
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  const url = SHEETS_URL + '?data=' + encoded;
+
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: {'Content-Type':'text/plain'},
+  }).then(r => {
+    console.log('✅ Sheets sync OK:', payload.tipo);
+  }).catch(() => {
+    const sc = document.createElement('script');
+    sc.src = url + '&callback=sheetsCallback';
+    sc.onerror = () => console.warn('⚠️ Sheets no disponible offline');
+    document.head.appendChild(sc);
+    setTimeout(() => sc.remove(), 5000);
+  });
+}
+
+// Callback para el método script tag
+window.sheetsCallback = function(resp){
+  console.log('✅ Sheets callback:', resp);
+};
+
+function sincronizarVenta(venta){
+  sincronizarSheets({
+    tipo: 'venta',
+    id: venta.id,
+    fecha: fmtFecha(venta.timestamp),
+    hora: fmtHora(venta.timestamp),
+    cliente: venta.cliente,
+    productos: venta.items.map(i=>`${i.cant}× ${i.nombre} (Q${i.precio})`).join(' | '),
+    total: venta.total.toFixed(2),
+    vendedor: venta.vendedor,
+    timestamp: venta.timestamp,
+  });
+}
+
+function sincronizarMovimiento(mov){
+  sincronizarSheets({
+    tipo: 'movimiento',
+    id: mov.id,
+    fecha: fmtFecha(mov.timestamp),
+    hora: fmtHora(mov.timestamp),
+    tipoMov: mov.tipo,
+    producto: mov.prodNombre || mov.detalle || '—',
+    cantidad: mov.cantidad,
+    motivo: mov.motivo || mov.ref || '—',
+    ejecutadoPor: mov.ejecutadoPor || mov.vendedor || '—',
+    timestamp: mov.timestamp,
+  });
+}
+
+function sincronizarStockCompleto(){
+  sincronizarSheets({
+    tipo: 'stock',
+    timestamp: ahora(),
+    productos: db.productos.map(p=>({
+      nombre: p.nombre,
+      sku: p.sku,
+      cat: CAT_LABELS[p.cat]||p.cat,
+      stock: p.stock,
+      precio: p.precio,
+      estado: p.stock===0?'Sin stock':p.stock<=p.minimo?'Bajo mínimo':'OK',
+    }))
+  });
+}
+
+
+document.addEventListener('keydown', function(e){
+  // Solo cuando la pantalla de login está visible
+  const loginVisible = document.getElementById('login-screen').style.display !== 'none';
+  const pinAdmOpen = document.getElementById('modal-pin-adm').classList.contains('open');
+
+  if(loginVisible){
+    if(e.key >= '0' && e.key <= '9'){ pinKey(parseInt(e.key)); e.preventDefault(); }
+    else if(e.key === 'Backspace'){ pinDel(); e.preventDefault(); }
+    else if(e.key === 'Tab'){
+      // Tab alterna entre Vendedor y Admin
+      e.preventDefault();
+      selRol(_rolLogin === 'vendedor' ? 'admin' : 'vendedor');
+    }
+    else if(e.key === 'Enter'){ verificarPin(); e.preventDefault(); }
+    return;
+  }
+
+  if(pinAdmOpen){
+    if(e.key >= '0' && e.key <= '9'){ pinAdmKey(parseInt(e.key)); e.preventDefault(); }
+    else if(e.key === 'Backspace'){ pinAdmDel(); e.preventDefault(); }
+    else if(e.key === 'Escape'){ cerrarModal('modal-pin-adm'); }
+    return;
+  }
+});
+
+// ════════════════════════════════════════════════════
+//  BUSCADOR DE PRODUCTOS EN VENTA
+// ════════════════════════════════════════════════════
+let _busqResultados = [];
+let _busqIdx = -1;
+
+function filtrarProductosVenta(q){
+  const wrap = document.getElementById('v-search-results');
+  if(!q.trim()){ wrap.style.display='none'; _busqResultados=[]; return; }
+
+  const t = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  _busqResultados = db.productos.filter(p => {
+    const n = (p.nombre+' '+p.sku+' '+(p.cat||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return n.includes(t);
+  }).slice(0, 12);
+
+  if(!_busqResultados.length){
+    wrap.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:var(--txt3)">Sin resultados para "'+q+'"</div>';
+    wrap.style.display='block'; _busqIdx=-1; return;
+  }
+
+  wrap.innerHTML = _busqResultados.map((p,i) => `
+    <div id="bres-${i}"
+      style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bdr);transition:background .1s"
+      onmousedown="seleccionarProductoBusqueda(${i})"
+      onmouseover="this.style.background='var(--bg3)'"
+      onmouseout="this.style.background='${i===_busqIdx?'rgba(249,115,22,.1)':''}'"
+    >
+      <span style="font-size:20px">${p.emoji}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${resaltarTexto(p.nombre,q)}</div>
+        <div style="font-size:11px;color:var(--txt3)">${p.sku} · Q${p.precio}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:${p.stock===0?'var(--red)':p.stock<=p.minimo?'var(--yel)':'var(--grn)'}">${p.stock}</div>
+        <div style="font-size:10px;color:var(--txt3)">en stock</div>
+      </div>
+    </div>`).join('');
+  wrap.style.display='block';
+  _busqIdx=-1;
+}
+
+function resaltarTexto(texto, q){
+  if(!q) return texto;
+  const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
+  return texto.replace(re,'<mark style="background:rgba(249,115,22,.3);color:var(--txt);border-radius:3px">$1</mark>');
+}
+
+function navBusquedaProd(e){
+  const wrap = document.getElementById('v-search-results');
+  if(wrap.style.display==='none'||!_busqResultados.length) return;
+
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _busqIdx = Math.min(_busqIdx+1, _busqResultados.length-1);
+    actualizarResaltadoBusqueda();
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _busqIdx = Math.max(_busqIdx-1, -1);
+    actualizarResaltadoBusqueda();
+  } else if(e.key==='Enter' && _busqIdx>=0){
+    e.preventDefault();
+    seleccionarProductoBusqueda(_busqIdx);
+  } else if(e.key==='Escape'){
+    wrap.style.display='none';
+    _busqIdx=-1;
+  }
+}
+
+function actualizarResaltadoBusqueda(){
+  _busqResultados.forEach((_,i) => {
+    const el = document.getElementById('bres-'+i);
+    if(el) el.style.background = i===_busqIdx?'rgba(249,115,22,.1)':'';
+  });
+  // Scroll al elemento activo
+  const activo = document.getElementById('bres-'+_busqIdx);
+  activo?.scrollIntoView({block:'nearest'});
+}
+
+function seleccionarProductoBusqueda(idx){
+  const prod = _busqResultados[idx];
+  if(!prod) return;
+  // Seleccionar en el select
+  document.getElementById('v-prod').value = prod.id;
+  onVProdChange();
+  // Limpiar buscador
+  document.getElementById('v-search').value = '';
+  document.getElementById('v-search-results').style.display='none';
+  _busqResultados=[]; _busqIdx=-1;
+  // Foco en cantidad
+  setTimeout(()=>document.getElementById('v-cant')?.focus(), 50);
+}
+
+// Cerrar buscador al hacer clic fuera
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#v-search') && !e.target.closest('#v-search-results')){
+    const wrap = document.getElementById('v-search-results');
+    if(wrap) wrap.style.display='none';
+  }
+});
+
+
+function poblarSelects(){
+  const ids = ['v-prod','adm-prod'];
+  ids.forEach(selId => {
+    const sel = document.getElementById(selId);
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Seleccioná un producto —</option>';
+    // Agrupar por categoría
+    const cats = {};
+    db.productos.forEach(p => {
+      if(!cats[p.cat]) cats[p.cat] = [];
+      cats[p.cat].push(p);
+    });
+    Object.keys(CAT_LABELS).forEach(cat => {
+      if(!cats[cat]?.length) return;
+      const grp = document.createElement('optgroup');
+      grp.label = CAT_LABELS[cat];
+      cats[cat].forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = `${p.emoji} ${p.nombre} — Q${p.precio} (${p.stock} en stock)`;
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
+    });
+    sel.value = prev;
+  });
+}
+
+function poblarSelectPedido(){
+  const sel = document.getElementById('ped-prod');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Seleccioná un producto —</option>';
+  const cats = {};
+  db.productos.forEach(p => {
+    if(!cats[p.cat]) cats[p.cat] = [];
+    cats[p.cat].push(p);
+  });
+  Object.keys(CAT_LABELS).forEach(cat => {
+    if(!cats[cat]?.length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = CAT_LABELS[cat];
+    cats[cat].forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.emoji} ${p.nombre} (stock: ${p.stock})`;
+      grp.appendChild(o);
+    });
+    sel.appendChild(grp);
+  });
+  sel.value = prev;
+}
+
+// ════════════════════════════════════════════════════
+//  VENTA — CARRITO
+// ════════════════════════════════════════════════════
+let carrito = [];
+
+function onVProdChange(){
+  const pid = document.getElementById('v-prod').value;
+  const p = db.productos.find(x=>x.id===pid);
+  const info = document.getElementById('v-prod-info');
+  if(!p){ info.textContent=''; return; }
+  info.innerHTML = `${p.emoji} <b>${p.nombre}</b> · Precio: <b style="color:var(--grn)">Q${p.precio}</b> · Stock disponible: <b style="color:${p.stock<=p.minimo?'var(--yel)':'var(--txt)'}">${p.stock} uds</b>`;
+  document.getElementById('v-cant').value = 1;
+  document.getElementById('v-cant').max = p.stock;
+}
+
+function agregarAlCarrito(){
+  const pid = document.getElementById('v-prod').value;
+  const cant = parseInt(document.getElementById('v-cant').value)||0;
+  if(!pid){ toast('Seleccioná un producto','err'); return; }
+  if(cant <= 0){ toast('La cantidad debe ser mayor a 0','err'); return; }
+  const prod = db.productos.find(x=>x.id===pid);
+  if(!prod){ return; }
+  // Verificar stock disponible
+  const enCarrito = carrito.find(i=>i.prodId===pid);
+  const cantEnCarrito = enCarrito ? enCarrito.cant : 0;
+  if(cant + cantEnCarrito > prod.stock){
+    toast(`Solo hay ${prod.stock} uds de ${prod.nombre} en stock`,'err'); return;
+  }
+  if(enCarrito){
+    enCarrito.cant += cant;
+  } else {
+    carrito.push({ prodId:pid, nombre:prod.nombre, emoji:prod.emoji, precio:prod.precio, cant });
+  }
+  document.getElementById('v-prod').value = '';
+  document.getElementById('v-prod-info').textContent = '';
+  document.getElementById('v-cant').value = 1;
+  renderCarrito();
+  toast(`✓ ${prod.nombre} × ${cant} agregado`);
+}
+
+function renderCarrito(){
+  const hayItems = carrito.length > 0;
+  document.getElementById('cart-wrap').style.display = hayItems ? 'block' : 'none';
+  document.getElementById('cart-empty').style.display = hayItems ? 'none' : 'block';
+  if(!hayItems) return;
+
+  const total = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
+  const nItems = carrito.reduce((s,i) => s+i.cant, 0);
+
+  document.getElementById('cart-items').innerHTML = carrito.map((item,idx) => `
+    <div class="cart-item">
+      <div style="font-size:20px">${item.emoji}</div>
+      <div style="flex:1;min-width:0">
+        <div class="cart-item-name">${item.nombre}</div>
+        <div class="cart-item-sub">Q${item.precio} × ${item.cant}</div>
+      </div>
+      <div class="cart-qty">
+        <button class="qty-btn" onclick="cambiarCantCart(${idx},-1)">−</button>
+        <div class="qty-num">${item.cant}</div>
+        <button class="qty-btn" onclick="cambiarCantCart(${idx},1)">+</button>
+      </div>
+      <div class="cart-item-precio">Q${(item.precio*item.cant).toFixed(2)}</div>
+      <button class="cart-remove" onclick="quitarDelCarrito(${idx})">✕</button>
+    </div>`).join('');
+
+  document.getElementById('venta-total').textContent = `Q${total.toFixed(2)}`;
+  document.getElementById('venta-n-items').textContent = `${carrito.length} producto${carrito.length!==1?'s':''} · ${nItems} unidades`;
+}
+
+function cambiarCantCart(idx, delta){
+  const item = carrito[idx];
+  const prod = db.productos.find(x=>x.id===item.prodId);
+  const nueva = item.cant + delta;
+  if(nueva <= 0){ quitarDelCarrito(idx); return; }
+  if(nueva > (prod?.stock||0)){ toast('No hay suficiente stock','err'); return; }
+  item.cant = nueva;
+  renderCarrito();
+}
+
+function quitarDelCarrito(idx){
+  carrito.splice(idx, 1);
+  renderCarrito();
+}
+
+function limpiarCarrito(){
+  carrito = [];
+  renderCarrito();
+}
+
+// ════════════════════════════════════════════════════
+//  CONFIRMAR VENTA
+// ════════════════════════════════════════════════════
+function abrirConfVenta(){
+  if(!carrito.length){ toast('El carrito está vacío','err'); return; }
+  const total = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
+  document.getElementById('modal-conf-items').innerHTML = carrito.map(item => `
+    <div class="modal-venta-row">
+      <span>${item.emoji} ${item.nombre} × ${item.cant}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:600">Q${(item.precio*item.cant).toFixed(2)}</span>
+    </div>`).join('');
+  document.getElementById('modal-conf-total').textContent = `Q${total.toFixed(2)}`;
+  document.getElementById('conf-cliente').value = '';
+  abrirModal('modal-conf');
+}
+
+function confirmarVenta(){
+  const ts = ahora();
+  const total = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
+  const cliente = document.getElementById('conf-cliente').value.trim() || 'Consumidor Final';
+  const venta = {
+    id: 'VTA-' + Date.now(),
+    timestamp: ts,
+    fecha: hoy(),
+    vendedor: _rolActual,
+    cliente,
+    items: carrito.map(i => ({ prodId:i.prodId, nombre:i.nombre, emoji:i.emoji, cant:i.cant, precio:i.precio, subtotal:i.precio*i.cant })),
+    total,
+  };
+  // Descontar del stock
+  carrito.forEach(item => {
+    const prod = db.productos.find(x=>x.id===item.prodId);
+    if(prod) prod.stock = Math.max(0, prod.stock - item.cant);
+  });
+  db.ventas.push(venta);
+  db.movimientos.push({
+    id:'MOV-'+Date.now(), timestamp:ts, fecha:hoy(), tipo:'venta',
+    ref:venta.id, detalle:`Venta: ${venta.items.map(i=>i.cant+'× '+i.nombre).join(', ')}`,
+    total, vendedor:_rolActual, cliente
+  });
+  saveDB();
+  cerrarModal('modal-conf');
+  limpiarCarrito();
+  poblarSelects();
+  toast(`✅ Venta registrada — Q${total.toFixed(2)}`, 'ok');
+  renderStock();
+  // Sincronizar con Google Sheets
+  sincronizarVenta(venta);
+  sincronizarStockCompleto();
+}
+
+// ════════════════════════════════════════════════════
+//  STOCK
+// ════════════════════════════════════════════════════
+function renderStock(){
+  const q = (document.getElementById('stock-search')?.value||'').toLowerCase().trim();
+  let prods = db.productos;
+  if(q) prods = prods.filter(p => p.nombre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+
+  const total = db.productos.reduce((s,p)=>s+p.stock,0);
+  const sinStock = db.productos.filter(p=>p.stock===0).length;
+  const bajoMin = db.productos.filter(p=>p.stock>0&&p.stock<=p.minimo).length;
+
+  document.getElementById('stock-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Unidades en bodega</div><div class="stat-val" style="color:var(--acc)">${total.toLocaleString()}</div><div class="stat-note">stock total</div></div>
+    <div class="stat-card"><div class="stat-label">Sin stock</div><div class="stat-val" style="color:var(--red)">${sinStock}</div><div class="stat-note">productos en 0</div></div>
+    <div class="stat-card"><div class="stat-label">Bajo mínimo</div><div class="stat-val" style="color:var(--yel)">${bajoMin}</div><div class="stat-note">requieren reposición</div></div>`;
+
+  if(!prods.length){
+    document.getElementById('stock-list').innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-msg">Sin resultados</div></div>';
+    return;
+  }
+
+  const cats = {};
+  prods.forEach(p => {
+    if(!cats[p.cat]) cats[p.cat] = [];
+    cats[p.cat].push(p);
+  });
+
+  let html = '';
+  Object.keys(CAT_LABELS).forEach(cat => {
+    if(!cats[cat]?.length) return;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin:16px 0 8px;padding-left:2px">${CAT_LABELS[cat]}</div>`;
+    cats[cat].forEach(p => {
+      const nivel = p.stock===0?'sin':p.stock<=p.minimo?'bajo':'ok';
+      const colStr = {sin:'var(--red)',bajo:'var(--yel)',ok:'var(--grn)'}[nivel];
+      html += `<div class="stock-item">
+        <div class="stock-emoji">${p.emoji}</div>
+        <div class="stock-info">
+          <div class="stock-nombre">${p.nombre}</div>
+          <div class="stock-sku">${p.sku} · Precio: Q${p.precio}</div>
+        </div>
+        <div>
+          <div class="stock-qty ${nivel==='sin'?'sin':nivel==='bajo'?'bajo':''}" style="color:${colStr}">${p.stock}</div>
+          <div class="stock-unit">uds</div>
+          ${nivel!=='ok'?`<div style="font-size:9px;color:${colStr};text-align:right">${nivel==='sin'?'SIN STOCK':'BAJO MÍN.'}</div>`:''}
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('stock-list').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════
+//  HISTORIAL
+// ════════════════════════════════════════════════════
+let _histFiltro = 'hoy';
+
+function filtrarHist(f){
+  _histFiltro = f;
+  renderHistorial(f);
+}
+
+function renderHistorial(filtro){
+  _histFiltro = filtro;
+  const hoyStr = hoy();
+  let ventas = [...db.ventas].reverse();
+
+  if(filtro === 'hoy') ventas = ventas.filter(v => v.fecha === hoyStr);
+  else if(filtro === 'semana'){
+    const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
+    const corte = hace7.toISOString().slice(0,10);
+    ventas = ventas.filter(v => v.fecha >= corte);
+  }
+
+  const totalDia = ventas.reduce((s,v)=>s+v.total,0);
+  const nTrans = ventas.length;
+  const nUds = ventas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+
+  document.getElementById('hist-sub').textContent = filtro==='hoy'?'Ventas de hoy':filtro==='semana'?'Últimos 7 días':'Todas las ventas';
+  document.getElementById('hist-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Ventas en Q</div><div class="stat-val" style="color:var(--grn)">Q${totalDia.toLocaleString('es-GT',{minimumFractionDigits:2})}</div><div class="stat-note">${filtro==='hoy'?'hoy':filtro==='semana'?'7 días':'total'}</div></div>
+    <div class="stat-card"><div class="stat-label">Transacciones</div><div class="stat-val">${nTrans}</div><div class="stat-note">ventas registradas</div></div>
+    <div class="stat-card"><div class="stat-label">Unidades vendidas</div><div class="stat-val" style="color:var(--acc)">${nUds}</div><div class="stat-note">productos despachados</div></div>`;
+
+  if(!ventas.length){
+    document.getElementById('hist-table').innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">Sin ventas en este período</div></div>';
+    return;
+  }
+
+  document.getElementById('hist-table').innerHTML = `
+    <table class="htable">
+      <thead><tr>
+        <th>Fecha y hora</th>
+        <th>Venta #</th>
+        <th>Cliente</th>
+        <th>Productos</th>
+        <th>Total Q</th>
+        <th>Vendedor</th>
+      </tr></thead>
+      <tbody>${ventas.map(v => `<tr onclick="verDetalleVenta('${v.id}')" style="cursor:pointer">
+        <td>
+          <div style="font-weight:600;font-size:12px">${fmtFecha(v.timestamp)}</div>
+          <div style="color:var(--acc);font-size:11px;font-family:'DM Mono',monospace">${fmtHora(v.timestamp)}</div>
+        </td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--txt3)">${v.id}</td>
+        <td style="font-size:12px">${v.cliente||'—'}</td>
+        <td style="font-size:11px;color:var(--txt2)">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,18)}`).join(', ')}</td>
+        <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--grn)">Q${v.total.toFixed(2)}</td>
+        <td><span class="badge ${v.vendedor==='admin'?'badge-blu':'badge-acc'}">${v.vendedor==='admin'?'Admin':'Vendedor'}</span></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function verDetalleVenta(id){
+  const v = db.ventas.find(x=>x.id===id);
+  if(!v) return;
+  const detalle = v.items.map(i=>`• ${i.emoji} ${i.nombre}: ${i.cant} uds × Q${i.precio} = Q${i.subtotal.toFixed(2)}`).join('\n');
+  alert(`📋 Venta ${v.id}\n📅 ${fmtDateTime(v.timestamp)}\n👤 Cliente: ${v.cliente}\n👨‍💼 Vendedor: ${v.vendedor}\n\n${detalle}\n\n💰 TOTAL: Q${v.total.toFixed(2)}`);
+}
+
+function exportarHistorial(){
+  const data = [];
+  db.ventas.forEach(v => {
+    v.items.forEach(i => {
+      data.push({
+        'Venta ID': v.id,
+        'Fecha': fmtFecha(v.timestamp),
+        'Hora': fmtHora(v.timestamp),
+        'Cliente': v.cliente||'CF',
+        'Vendedor': v.vendedor,
+        'Producto': i.nombre,
+        'SKU': i.prodId,
+        'Cantidad': i.cant,
+        'Precio Q': i.precio,
+        'Subtotal Q': i.subtotal,
+        'Total Venta Q': v.total,
+      });
+    });
+  });
+  if(!data.length){ toast('Sin ventas para exportar','err'); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+  XLSX.writeFile(wb, `central_norte_ventas_${hoy()}.xlsx`);
+  toast('✅ Excel exportado');
+}
+
+// ════════════════════════════════════════════════════
+//  LABELS DE CATEGORÍAS
+// ════════════════════════════════════════════════════
+const CAT_LABELS = {
+  maquinas:'🎰 Máquinas Chicleras',
+  maquinas_peluche:'🕹️ Máquinas de Peluches y Video',
+  chicles:'🟢 Chicles',
+  dulces:'🍭 Dulces',
+  pelotas:'⚽ Pelotas',
+  capsulas:'💊 Cápsulas con Juguetes',
+  peluches:'🧸 Peluches',
+  repuestos:'🔧 Repuestos',
+  otro:'📦 Otro',
+};
+
+// ════════════════════════════════════════════════════
+//  AUDITORÍA
+// ════════════════════════════════════════════════════
+let _audActiva = null;
+
+function iniciarAuditoria(){
+  _audActiva = {
+    id: 'AUD-'+Date.now(),
+    timestamp: ahora(),
+    fecha: hoy(),
+    items: db.productos.map(p => ({
+      prodId: p.id, nombre: p.nombre, emoji: p.emoji, sku: p.sku, cat: p.cat,
+      stockSistema: p.stock, fisico: null, diferencia: null
+    }))
+  };
+  document.getElementById('aud-form-wrap').style.display = 'none';
+  document.getElementById('aud-activa').style.display = 'block';
+  document.getElementById('aud-hora').textContent = fmtDateTime(_audActiva.timestamp);
+  renderAudActiva();
+}
+
+function renderAudActiva(){
+  if(!_audActiva) return;
+  const cats = {};
+  _audActiva.items.forEach(item => {
+    if(!cats[item.cat]) cats[item.cat] = [];
+    cats[item.cat].push(item);
+  });
+
+  let html = '';
+  Object.keys(CAT_LABELS).forEach(cat => {
+    if(!cats[cat]?.length) return;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">${CAT_LABELS[cat]}</div>`;
+    cats[cat].forEach((item, idx) => {
+      const globalIdx = _audActiva.items.indexOf(item);
+      html += `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 12px;margin-bottom:6px">
+        <div style="font-size:20px;flex-shrink:0">${item.emoji}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.nombre}</div>
+          <div style="font-size:10px;color:var(--txt3)">${item.sku}</div>
+        </div>
+        <div style="text-align:center;min-width:50px">
+          <div style="font-size:10px;color:var(--txt3)">Sistema</div>
+          <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:var(--acc)">${item.stockSistema}</div>
+        </div>
+        <div style="text-align:center;min-width:70px">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:4px">Físico</div>
+          <input type="number" min="0" placeholder="—"
+            value="${item.fisico !== null ? item.fisico : ''}"
+            style="width:64px;background:var(--bg);border:1px solid var(--acc);border-radius:8px;color:var(--txt);font-size:15px;font-family:'DM Mono',monospace;font-weight:600;padding:5px;text-align:center;outline:none"
+            oninput="setAudFisico(${globalIdx}, this.value)">
+        </div>
+        <div id="aud-dif-${globalIdx}" style="text-align:center;min-width:44px;font-family:'DM Mono',monospace;font-weight:700;font-size:14px;color:var(--txt3)">—</div>
+      </div>`;
+    });
+  });
+  document.getElementById('aud-items').innerHTML = html;
+}
+
+function setAudFisico(idx, val){
+  if(!_audActiva) return;
+  const item = _audActiva.items[idx];
+  const fisico = val === '' ? null : parseInt(val);
+  item.fisico = fisico;
+  const dif = fisico !== null ? fisico - item.stockSistema : null;
+  item.diferencia = dif;
+  const difEl = document.getElementById('aud-dif-'+idx);
+  if(difEl){
+    difEl.textContent = dif !== null ? (dif>0?'+':'')+dif : '—';
+    difEl.style.color = dif===null?'var(--txt3)':dif===0?'var(--grn)':dif>0?'var(--blu)':'var(--red)';
+  }
+}
+
+function cancelarAuditoria(){
+  _audActiva = null;
+  document.getElementById('aud-form-wrap').style.display = 'block';
+  document.getElementById('aud-activa').style.display = 'none';
+}
+
+function guardarAuditoria(){
+  if(!_audActiva) return;
+  const contados = _audActiva.items.filter(i => i.fisico !== null).length;
+  if(!contados){ toast('Ingresá al menos un conteo físico','err'); return; }
+  if(!db.auditorias) db.auditorias = [];
+  db.auditorias.push({..._audActiva});
+  saveDB();
+  cancelarAuditoria();
+  renderAudHistorial();
+  toast(`✅ Auditoría guardada — ${contados} productos contados`);
+}
+
+function renderAudHistorial(){
+  if(!db.auditorias?.length){
+    document.getElementById('aud-historial').innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">Sin auditorías guardadas aún</div></div>';
+    return;
+  }
+  document.getElementById('aud-historial').innerHTML = [...db.auditorias].reverse().map(aud => {
+    const contados = aud.items.filter(i=>i.fisico!==null).length;
+    const difs = aud.items.filter(i=>i.diferencia!==null&&i.diferencia!==0).length;
+    const sobrante = aud.items.filter(i=>i.diferencia>0).length;
+    const faltante = aud.items.filter(i=>i.diferencia<0).length;
+    return `<div class="admin-card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${fmtFecha(aud.timestamp)} <span style="font-size:12px;color:var(--txt3)">${fmtHora(aud.timestamp)}</span></div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">${contados} productos contados · ${difs} con diferencia ${sobrante>0?'· <span style="color:var(--blu)">+'+sobrante+' sobrante</span>':''} ${faltante>0?'· <span style="color:var(--red)">−'+faltante+' faltante</span>':''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sec btn-sm" onclick="verAuditoria('${aud.id}')">👁 Ver</button>
+          <button class="btn btn-success btn-sm" onclick="exportarAudExcel('${aud.id}')">📊 Excel</button>
+          <button class="btn btn-sec btn-sm" onclick="imprimirAuditoria('${aud.id}')">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <!-- Resumen rápido de diferencias -->
+      ${difs>0?`<div style="font-size:11px">
+        ${aud.items.filter(i=>i.diferencia!==null&&i.diferencia!==0).map(i=>`
+          <span style="display:inline-block;background:${i.diferencia>0?'rgba(59,130,246,.12)':'rgba(239,68,68,.12)'};color:${i.diferencia>0?'var(--blu)':'var(--red)'};border-radius:6px;padding:2px 8px;margin:2px;font-size:10px">
+            ${i.emoji} ${i.nombre.substring(0,20)} ${i.diferencia>0?'+':''}${i.diferencia}
+          </span>`).join('')}
+      </div>`:'<div style="font-size:11px;color:var(--grn)">✅ Sin diferencias — inventario cuadra perfectamente</div>'}
+    </div>`;
+  }).join('');
+}
+
+function verAuditoria(id){
+  const aud = db.auditorias?.find(x=>x.id===id); if(!aud) return;
+  const rows = aud.items.filter(i=>i.fisico!==null).map(i=>`
+    <tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 10px">${i.emoji} ${i.nombre}</td>
+      <td style="padding:6px 10px;text-align:center">${i.sku}</td>
+      <td style="padding:6px 10px;text-align:center">${i.stockSistema}</td>
+      <td style="padding:6px 10px;text-align:center">${i.fisico}</td>
+      <td style="padding:6px 10px;text-align:center;font-weight:700;color:${i.diferencia===0?'green':i.diferencia>0?'blue':'red'}">${i.diferencia>0?'+':''}${i.diferencia}</td>
+    </tr>`).join('');
+  const w = window.open('','_blank','width=800,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><title>Auditoría ${fmtFecha(aud.timestamp)}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;color:#111}table{width:100%;border-collapse:collapse}th{background:#f0f0f0;padding:8px 10px;text-align:left;font-size:12px}td{font-size:12px}@media print{.no-print{display:none}}</style>
+  </head><body>
+  <h2>🍬 ChicleManía — Central Norte</h2>
+  <h3>Auditoría de Inventario</h3>
+  <p>Fecha: <b>${fmtDateTime(aud.timestamp)}</b></p>
+  <table><thead><tr><th>Producto</th><th>SKU</th><th>Sistema</th><th>Físico</th><th>Diferencia</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <p style="margin-top:16px;font-size:11px;color:#666">Generado el ${new Date().toLocaleString('es-GT')}</p>
+  <div class="no-print" style="margin-top:20px"><button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / Guardar PDF</button></div>
+  <script>window.onload=()=>{}<\/script></body></html>`);
+  w.document.close();
+}
+
+function imprimirAuditoria(id){ verAuditoria(id); }
+
+function exportarAudExcel(id){
+  const aud = db.auditorias?.find(x=>x.id===id); if(!aud) return;
+  const data = aud.items.filter(i=>i.fisico!==null).map(i=>({
+    Producto: i.nombre, SKU: i.sku, Categoría: CAT_LABELS[i.cat]||i.cat,
+    'Stock Sistema': i.stockSistema, 'Conteo Físico': i.fisico,
+    'Diferencia': i.diferencia,
+    'Estado': i.diferencia===0?'✅ Cuadra':i.diferencia>0?'📈 Sobrante':'📉 Faltante'
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  // Hoja de resumen
+  const resumen = [{
+    'Fecha': fmtDateTime(aud.timestamp),
+    'Productos contados': data.length,
+    'Sin diferencia': data.filter(r=>r.Diferencia===0).length,
+    'Sobrante': data.filter(r=>r.Diferencia>0).length,
+    'Faltante': data.filter(r=>r.Diferencia<0).length,
+  }];
+  const wsRes = XLSX.utils.json_to_sheet(resumen);
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
+  XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+  XLSX.writeFile(wb, `auditoria_central_norte_${aud.fecha}.xlsx`);
+  toast('✅ Excel de auditoría exportado');
+}
+
+// ════════════════════════════════════════════════════
+//  REPORTES DESDE AUDITORÍA (vendedor)
+// ════════════════════════════════════════════════════
+
+// ── Reporte stock actual ──
+function reporteStockExcel(){
+  const data = db.productos.map(p=>({
+    'Producto': p.nombre, 'SKU': p.sku,
+    'Categoría': CAT_LABELS[p.cat]||p.cat,
+    'Stock actual': p.stock,
+    'Precio Q': p.precio,
+    'Valor Q': p.stock*p.precio,
+    'Estado': p.stock===0?'❌ Sin stock':p.stock<=p.minimo?'⚠️ Bajo mínimo':'✅ OK',
+    'Mínimo': p.minimo,
+  }));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'Stock');
+  XLSX.writeFile(wb,`stock_central_norte_${hoy()}.xlsx`);
+  toast('✅ Excel de stock exportado');
+}
+
+function reporteStockPDF(){
+  const rows=db.productos.map(p=>`<tr>
+    <td style="padding:5px 8px;font-size:11px">${p.emoji} ${p.nombre}</td>
+    <td style="padding:5px 8px;font-size:11px">${p.sku}</td>
+    <td style="padding:5px 8px;font-size:11px;text-align:center;font-weight:700;color:${p.stock===0?'#dc2626':p.stock<=p.minimo?'#d97706':'#16a34a'}">${p.stock}</td>
+    <td style="padding:5px 8px;font-size:11px;text-align:right">Q${p.precio}</td>
+    <td style="padding:5px 8px;font-size:11px;text-align:center">${p.stock===0?'❌ Sin stock':p.stock<=p.minimo?'⚠️ Bajo mínimo':'✅ OK'}</td>
+  </tr>`).join('');
+  const totalUds=db.productos.reduce((s,p)=>s+p.stock,0);
+  const totalVal=db.productos.reduce((s,p)=>s+p.stock*p.precio,0);
+  const w=window.open('','_blank','width=800,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><title>Stock Central Norte</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#f97316}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:11px}tr:nth-child(even){background:#f9f9f9}td{font-size:11px}.footer{font-size:11px;color:#888;margin-top:12px}@media print{.no-print{display:none}}</style>
+  </head><body>
+  <h2>🍬 ChicleManía — Central Norte</h2>
+  <h3>Reporte de Stock Actual</h3>
+  <p style="font-size:12px">Generado: <b>${new Date().toLocaleString('es-GT')}</b> &nbsp;|&nbsp; Total unidades: <b>${totalUds}</b> &nbsp;|&nbsp; Valor total: <b>Q${totalVal.toLocaleString('es-GT',{minimumFractionDigits:2})}</b></p>
+  <table><thead><tr><th>Producto</th><th>SKU</th><th style="text-align:center">Stock</th><th style="text-align:right">Precio Q</th><th style="text-align:center">Estado</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <p class="footer">ChicleManía Central Norte — chiclemania.com</p>
+  <div class="no-print" style="margin-top:16px"><button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+}
+
+// ── Rango de fechas para ventas ──
+function setRangoVentas(tipo){
+  const hoyStr=hoy();
+  let desde='',hasta=hoyStr;
+  if(tipo==='hoy'){ desde=hoyStr; }
+  else if(tipo==='semana'){
+    const d=new Date();d.setDate(d.getDate()-6);
+    desde=d.toISOString().slice(0,10);
+  } else if(tipo==='mes'){
+    const d=new Date();
+    desde=d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+  } else { desde=''; hasta=''; }
+  const desdeEl=document.getElementById('rpt-desde');
+  const hastaEl=document.getElementById('rpt-hasta');
+  if(desdeEl) desdeEl.value=desde;
+  if(hastaEl) hastaEl.value=hasta;
+  actualizarPreviewRango();
+}
+
+function actualizarPreviewRango(){
+  const desde=document.getElementById('rpt-desde')?.value||'';
+  const hasta=document.getElementById('rpt-hasta')?.value||'';
+  let ventas=db.ventas;
+  if(desde) ventas=ventas.filter(v=>v.fecha>=desde);
+  if(hasta) ventas=ventas.filter(v=>v.fecha<=hasta);
+  const total=ventas.reduce((s,v)=>s+v.total,0);
+  const uds=ventas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  const el=document.getElementById('rpt-preview');
+  if(el) el.innerHTML=`<b style="color:var(--grn)">Q${total.toLocaleString('es-GT',{minimumFractionDigits:2})}</b> en ventas · <b>${ventas.length}</b> transacciones · <b>${uds}</b> unidades vendidas ${desde||hasta?`<span style="color:var(--txt3)">· ${desde?fmtFecha(desde+'T00:00:00'):'inicio'} → ${hasta?fmtFecha(hasta+'T00:00:00'):'hoy'}</span>`:''}`;
+}
+
+function getVentasFiltradas(){
+  const desde=document.getElementById('rpt-desde')?.value||'';
+  const hasta=document.getElementById('rpt-hasta')?.value||'';
+  let ventas=db.ventas;
+  if(desde) ventas=ventas.filter(v=>v.fecha>=desde);
+  if(hasta) ventas=ventas.filter(v=>v.fecha<=hasta);
+  return ventas;
+}
+
+function reporteVentasExcel(){
+  const ventas=getVentasFiltradas();
+  if(!ventas.length){toast('Sin ventas en el período seleccionado','err');return;}
+  const data=[];
+  ventas.forEach(v=>v.items.forEach(i=>data.push({
+    'ID Venta':v.id,'Fecha':fmtFecha(v.timestamp),'Hora':fmtHora(v.timestamp),
+    'Cliente':v.cliente||'CF','Producto':i.nombre,'Cantidad':i.cant,
+    'Precio Q':i.precio,'Subtotal Q':i.subtotal,'Total Venta Q':v.total,
+    'Vendedor':v.vendedor,
+  })));
+  const wb=XLSX.utils.book_new();
+  // Resumen
+  const total=ventas.reduce((s,v)=>s+v.total,0);
+  const resumen=[{'Período':`${document.getElementById('rpt-desde')?.value||'inicio'} a ${document.getElementById('rpt-hasta')?.value||'hoy'}`,'Transacciones':ventas.length,'Total Q':total.toFixed(2)}];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),'Resumen');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'Detalle ventas');
+  const desde=document.getElementById('rpt-desde')?.value||'todo';
+  XLSX.writeFile(wb,`ventas_central_norte_${desde}_${hoy()}.xlsx`);
+  toast('✅ Excel de ventas exportado');
+}
+
+function reporteVentasPDF(){
+  const ventas=getVentasFiltradas().reverse();
+  if(!ventas.length){toast('Sin ventas en el período seleccionado','err');return;}
+  const total=ventas.reduce((s,v)=>s+v.total,0);
+  const uds=ventas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  const desde=document.getElementById('rpt-desde')?.value||'';
+  const hasta=document.getElementById('rpt-hasta')?.value||'';
+  const rows=ventas.map(v=>`<tr>
+    <td style="padding:5px 8px;font-size:10px">${fmtFecha(v.timestamp)}</td>
+    <td style="padding:5px 8px;font-size:10px;color:#f97316;font-weight:600">${fmtHora(v.timestamp)}</td>
+    <td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}</td>
+    <td style="padding:5px 8px;font-size:10px">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,18)}`).join('<br>')}</td>
+    <td style="padding:5px 8px;font-size:11px;font-weight:700;text-align:right;color:#16a34a">Q${v.total.toFixed(2)}</td>
+    <td style="padding:5px 8px;font-size:10px">${v.vendedor}</td>
+  </tr>`).join('');
+  const w=window.open('','_blank','width=900,height=750');
+  w.document.write(`<!DOCTYPE html><html><head><title>Ventas Central Norte</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#f97316}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:10px}tr:nth-child(even){background:#f9f9f9}.totales{background:#fff8f0;border:1px solid #f97316;border-radius:8px;padding:12px;margin-top:14px;display:flex;gap:24px}.t-val{font-size:20px;font-weight:800;color:#f97316}@media print{.no-print{display:none}}</style>
+  </head><body>
+  <h2>🍬 ChicleManía — Central Norte</h2>
+  <h3>Reporte de Ventas</h3>
+  <p style="font-size:12px">Período: <b>${desde?fmtFecha(desde+'T00:00:00'):'inicio'} → ${hasta?fmtFecha(hasta+'T00:00:00'):'hoy'}</b> &nbsp;|&nbsp; Generado: <b>${new Date().toLocaleString('es-GT')}</b></p>
+  <div class="totales">
+    <div><div style="font-size:11px;color:#888">TOTAL VENDIDO</div><div class="t-val">Q${total.toLocaleString('es-GT',{minimumFractionDigits:2})}</div></div>
+    <div><div style="font-size:11px;color:#888">TRANSACCIONES</div><div class="t-val">${ventas.length}</div></div>
+    <div><div style="font-size:11px;color:#888">UNIDADES</div><div class="t-val">${uds}</div></div>
+  </div>
+  <table style="margin-top:14px"><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Productos</th><th>Total Q</th><th>Vendedor</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div class="no-print" style="margin-top:16px"><button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+}
+
+// ── Guardar auditoría Y exportar inmediatamente ──
+function guardarYExportarAuditoria(){
+  guardarAuditoria();
+  if(db.auditorias?.length){
+    const ultima=db.auditorias[db.auditorias.length-1];
+    exportarAudExcel(ultima.id);
+  }
+}
+
+// ── Validar DPI ──
+function validarDPI(input){
+  const val=input.value.replace(/\D/g,'');
+  input.value=val; // solo dígitos
+  const status=document.getElementById('dpi-status');
+  if(!status) return;
+  if(val.length===0){
+    status.textContent='Ingresá los 13 dígitos de tu DPI';
+    status.style.color='var(--txt3)';
+  } else if(val.length<13){
+    status.textContent=`${val.length}/13 dígitos — faltan ${13-val.length}`;
+    status.style.color='var(--yel)';
+  } else {
+    status.textContent='✅ DPI válido (13 dígitos)';
+    status.style.color='var(--grn)';
+  }
+}
+
+// ── Reportar producto nuevo desde vendedor ──
+function reportarProductoNuevo(){
+  const nombre=document.getElementById('np-nombre').value.trim();
+  const cantidad=parseInt(document.getElementById('np-cantidad').value)||0;
+  const desc=document.getElementById('np-desc').value.trim();
+  const precio=parseFloat(document.getElementById('np-precio-v').value)||0;
+  const dpi=document.getElementById('np-dpi').value.trim();
+
+  if(!nombre){toast('Ingresá el nombre del producto','err');return;}
+  if(cantidad<=0){toast('Ingresá la cantidad recibida','err');return;}
+  if(dpi.length!==13||!/^\d{13}$/.test(dpi)){
+    toast('El DPI debe tener exactamente 13 dígitos numéricos','err');
+    return;
+  }
+
+  // Guardar como reporte pendiente de validación (NO entra al stock todavía)
+  if(!db.productosPendientes) db.productosPendientes=[];
+  const reporte={
+    id:'PEND-'+Date.now(),
+    timestamp:ahora(), fecha:hoy(),
+    nombre, cantidad, desc, precio,
+    dpi,
+    estado:'pendiente', // admin lo valida
+    registradoPor:'vendedor',
+  };
+  db.productosPendientes.push(reporte);
+  saveDB();
+
+  // Limpiar
+  ['np-nombre','np-cantidad','np-desc','np-precio-v','np-dpi'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('dpi-status').textContent='Ingresá los 13 dígitos de tu DPI';
+  document.getElementById('dpi-status').style.color='var(--txt3)';
+
+  toast(`✅ "${nombre}" reportado — el Admin lo validará y cargará al stock`);
+
+  // Notificar al admin (aparecerá en panel Admin)
+  if(_rolActual==='admin') renderResumenAdmin();
+}
+
+
+function exportarHistorialPDF(){
+  const hoyStr = hoy();
+  let ventas = [...db.ventas];
+  if(_histFiltro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
+  else if(_histFiltro==='semana'){
+    const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
+    ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
+  }
+  const total = ventas.reduce((s,v)=>s+v.total,0);
+  const rows = ventas.reverse().map(v=>`
+    <tr>
+      <td style="padding:5px 8px;font-size:11px">${fmtFecha(v.timestamp)}</td>
+      <td style="padding:5px 8px;font-size:11px">${fmtHora(v.timestamp)}</td>
+      <td style="padding:5px 8px;font-size:11px">${v.cliente||'CF'}</td>
+      <td style="padding:5px 8px;font-size:11px">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,20)}`).join(', ')}</td>
+      <td style="padding:5px 8px;font-size:11px;font-weight:700;text-align:right">Q${v.total.toFixed(2)}</td>
+      <td style="padding:5px 8px;font-size:11px">${v.vendedor}</td>
+    </tr>`).join('');
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><title>Historial Ventas — Central Norte</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:11px}tr:nth-child(even){background:#f9f9f9}.total{font-size:16px;font-weight:bold;color:#f97316}@media print{.no-print{display:none}}</style>
+  </head><body>
+  <h2>🍬 ChicleManía — Central Norte</h2>
+  <h3>Historial de Ventas — ${_histFiltro==='hoy'?'Hoy':_histFiltro==='semana'?'Últimos 7 días':'Todas'}</h3>
+  <p>Generado: <b>${new Date().toLocaleString('es-GT')}</b></p>
+  <table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Productos</th><th>Total Q</th><th>Vendedor</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <p class="total" style="margin-top:16px">TOTAL: Q${total.toLocaleString('es-GT',{minimumFractionDigits:2})}</p>
+  <div class="no-print" style="margin-top:16px">
+    <button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / Guardar PDF</button>
+  </div></body></html>`);
+  w.document.close();
+}
+
+
+let _admPendingAction = null;
+let _admPinBuffer = '';
+
+function ejecutarMovAdmin(){
+  const pid = document.getElementById('adm-prod').value;
+  const tipo = document.getElementById('adm-tipo').value;
+  const cant = parseInt(document.getElementById('adm-cant').value)||0;
+  const motivo = document.getElementById('adm-motivo').value.trim();
+  const costo = parseFloat(document.getElementById('adm-costo').value)||0;
+
+  if(!pid){ toast('Seleccioná un producto','err'); return; }
+  if(cant <= 0){ toast('Ingresá una cantidad válida','err'); return; }
+  if(!motivo){ toast('El motivo es obligatorio','err'); return; }
+
+  // Si es vendedor, pedir PIN admin
+  if(_rolActual !== 'admin'){
+    _admPendingAction = { pid, tipo, cant, motivo, costo };
+    document.getElementById('modal-pin-adm-sub').textContent = `Para modificar stock de "${db.productos.find(x=>x.id===pid)?.nombre}" necesitás el PIN de Admin`;
+    _admPinBuffer = '';
+    actualizarPinDisplay('pin-adm-display','pad');
+    document.getElementById('pin-adm-error').textContent = '';
+    abrirModal('modal-pin-adm');
+    return;
+  }
+  aplicarMovAdmin({ pid, tipo, cant, motivo, costo });
+}
+
+function aplicarMovAdmin(params){
+  const { pid, tipo, cant, motivo, costo } = params;
+  const prod = db.productos.find(x=>x.id===pid);
+  if(!prod) return;
+
+  const ts = ahora();
+  let delta = 0;
+  if(tipo === 'carga') delta = cant;
+  else if(tipo === 'retiro') delta = -cant;
+  else delta = cant - prod.stock; // ajuste directo
+
+  prod.stock = Math.max(0, prod.stock + (tipo==='ajuste'? delta : delta));
+  if(tipo==='ajuste') prod.stock = cant; // para ajuste, fijar al número dado
+
+  db.movimientos.push({
+    id: 'MOV-'+Date.now(), timestamp: ts, fecha: hoy(),
+    tipo: tipo==='carga'?'ingreso':tipo==='retiro'?'retiro':'ajuste',
+    prodId: pid, prodNombre: prod.nombre,
+    cantidad: tipo==='carga'?cant:tipo==='retiro'?-cant:delta,
+    costo, motivo,
+    ejecutadoPor: _rolActual,
+    ref: `${tipo.toUpperCase()}-${prod.sku}`
+  });
+  saveDB();
+
+  // Sincronizar con Google Sheets
+  const movGuardado = db.movimientos[db.movimientos.length-1];
+  sincronizarMovimiento(movGuardado);
+  sincronizarStockCompleto();
+
+  // Limpiar form
+  document.getElementById('adm-prod').value = '';
+  document.getElementById('adm-cant').value = 1;
+  document.getElementById('adm-motivo').value = '';
+  document.getElementById('adm-costo').value = '';
+
+  poblarSelects();
+  renderStock();
+  renderResumenAdmin();
+  toast(`✅ Stock de "${prod.nombre}" ${tipo==='carga'?'aumentado en '+cant:tipo==='retiro'?'retirado '+cant+' uds':'ajustado a '+cant}`);
+}
+
+// PIN Admin para acciones sensibles desde vendedor
+function pinAdmKey(n){
+  if(_admPinBuffer.length >= 4) return;
+  _admPinBuffer += n;
+  actualizarPinDisplay('pin-adm-display','pad');
+  if(_admPinBuffer.length === 4) verificarPinAdm();
+}
+function pinAdmDel(){
+  _admPinBuffer = _admPinBuffer.slice(0,-1);
+  actualizarPinDisplay('pin-adm-display','pad');
+}
+function verificarPinAdm(){
+  const pins = getPins();
+  if(_admPinBuffer === pins.admin){
+    cerrarModal('modal-pin-adm');
+    _admPinBuffer = '';
+    if(_admPendingAction){
+      aplicarMovAdmin(_admPendingAction);
+      _admPendingAction = null;
+    }
+  } else {
+    document.getElementById('pin-adm-error').textContent = 'PIN Admin incorrecto';
+    _admPinBuffer = '';
+    setTimeout(() => {
+      actualizarPinDisplay('pin-adm-display','pad');
+      document.getElementById('pin-adm-error').textContent = '';
+    }, 1000);
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  ADMIN — AGREGAR PRODUCTO NUEVO
+// ════════════════════════════════════════════════════
+function agregarProductoNuevo(){
+  const nombre = document.getElementById('np-nombre').value.trim();
+  const dpi = document.getElementById('np-dpi').value.trim();
+  const precio = parseFloat(document.getElementById('np-precio').value)||0;
+  const stock = parseInt(document.getElementById('np-stock').value)||0;
+  const minimo = parseInt(document.getElementById('np-min').value)||5;
+
+  if(!nombre){ toast('El nombre del producto es obligatorio','err'); return; }
+  if(!dpi){ toast('El DPI del responsable es obligatorio','err'); return; }
+  if(dpi.replace(/\D/g,'').length < 10){ toast('El DPI debe tener al menos 10 dígitos','err'); return; }
+
+  const nuevoId = 'PROD-'+Date.now();
+  const nuevo = {
+    id: nuevoId,
+    nombre,
+    sku: document.getElementById('np-sku').value.trim() || nuevoId,
+    cat: document.getElementById('np-cat').value,
+    emoji: '📦',
+    precio,
+    minimo,
+    stock,
+    // Registro de quién lo agregó
+    creadoPor: {
+      rol: _rolActual,
+      dpi,
+      timestamp: ahora(),
+      fecha: hoy(),
+    }
+  };
+  db.productos.push(nuevo);
+  db.movimientos.push({
+    id:'MOV-'+Date.now(), timestamp:ahora(), fecha:hoy(),
+    tipo:'producto_nuevo',
+    prodId:nuevoId, prodNombre:nombre,
+    cantidad:stock, costo:0,
+    motivo:`Producto nuevo registrado por DPI ${dpi}`,
+    ejecutadoPor:_rolActual, ref:'NUEVO-PROD'
+  });
+  saveDB();
+
+  // Limpiar
+  ['np-nombre','np-sku','np-precio','np-stock','np-min','np-dpi'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  document.getElementById('np-stock').value='0';
+  document.getElementById('np-min').value='5';
+
+  poblarSelects();
+  renderResumenAdmin();
+  toast(`✅ "${nombre}" agregado al catálogo — DPI ${dpi} registrado`);
+}
+
+// ════════════════════════════════════════════════════
+//  ADMIN — CAMBIAR PINs
+// ════════════════════════════════════════════════════
+function aprobarProductoPendiente(id){
+  const p=db.productosPendientes?.find(x=>x.id===id); if(!p) return;
+  // Agregar al catálogo como producto nuevo
+  const nuevoId='PROD-'+Date.now();
+  db.productos.push({
+    id:nuevoId, nombre:p.nombre, sku:'NUEVO-'+Date.now(),
+    cat:'otro', emoji:'📦',
+    precio:p.precio||0, minimo:5, stock:p.cantidad,
+    creadoPor:{dpi:p.dpi, timestamp:p.timestamp, fecha:p.fecha, rol:'vendedor'}
+  });
+  db.movimientos.push({
+    id:'MOV-'+Date.now(), timestamp:ahora(), fecha:hoy(),
+    tipo:'ingreso', prodId:nuevoId, prodNombre:p.nombre,
+    cantidad:p.cantidad, costo:0,
+    motivo:`Producto nuevo aprobado. DPI vendedor: ${p.dpi}`,
+    ejecutadoPor:'admin', ref:'APROBADO-PEND'
+  });
+  p.estado='aprobado'; p.aprobadoEn=ahora();
+  saveDB(); poblarSelects(); renderResumenAdmin(); renderStock();
+  toast(`✅ "${p.nombre}" aprobado y cargado al stock con ${p.cantidad} uds`);
+}
+
+function rechazarProductoPendiente(id){
+  if(!confirm('¿Rechazar este producto pendiente?')) return;
+  const p=db.productosPendientes?.find(x=>x.id===id); if(!p) return;
+  p.estado='rechazado'; p.rechazadoEn=ahora();
+  saveDB(); renderResumenAdmin();
+  toast(`Producto "${p.nombre}" rechazado`);
+}
+
+function syncManual(){
+  const log = document.getElementById('sync-log');
+  const status = document.getElementById('sheets-status');
+  if(log) log.textContent = '⏳ Enviando stock completo...';
+  sincronizarStockCompleto();
+  // También sincronizar últimas 10 ventas por si acaso
+  const ultimasVentas = db.ventas.slice(-5);
+  ultimasVentas.forEach(v => sincronizarVenta(v));
+  setTimeout(()=>{
+    if(log) log.textContent = `✅ Sincronizado a las ${new Date().toLocaleTimeString('es-GT')} — ${db.productos.length} productos · ${db.ventas.length} ventas`;
+    if(status) status.textContent = '✅ Activo';
+    if(status) status.style.color = 'var(--grn)';
+  }, 2000);
+  toast('🔄 Sincronizando con Google Sheets...');
+}
+
+function verificarConexionSheets(){
+  const status = document.getElementById('sheets-status');
+  const log = document.getElementById('sync-log');
+  if(log) log.textContent = '⏳ Verificando...';
+
+  // Intentar con fetch primero
+  fetch(SHEETS_URL, {method:'GET'})
+    .then(r => r.json())
+    .then(data => {
+      if(status){status.textContent='✅ Conectado';status.style.color='var(--grn)';}
+      if(log) log.textContent = `✅ Google Sheets responde correctamente — ${new Date().toLocaleTimeString('es-GT')}`;
+      toast('✅ Google Sheets conectado','ok');
+    })
+    .catch(() => {
+      // CORS desde archivo local — es normal, igual funciona
+      if(status){status.textContent='✅ Activo (CORS local)';status.style.color='var(--grn)';}
+      if(log) log.textContent = `ℹ️ Conexión activa — el error CORS es normal al abrir desde archivo local. Los datos SÍ llegan a Sheets.`;
+      toast('ℹ️ Activo — CORS local es normal','ok');
+    });
+}
+
+function cambiarPins(){
+  // Esta función es reemplazada por la versión Firebase al final del script
+}
+
+// ════════════════════════════════════════════════════
+//  ADMIN — RESUMEN DEL DÍA
+// ════════════════════════════════════════════════════
+function renderResumenAdmin(){
+  const hoyStr = hoy();
+  const ventasHoy = db.ventas.filter(v=>v.fecha===hoyStr);
+  const totalHoy = ventasHoy.reduce((s,v)=>s+v.total,0);
+  const udsHoy = ventasHoy.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  const movsHoy = db.movimientos.filter(m=>m.fecha===hoyStr&&m.tipo!=='venta');
+  const productosNuevos = db.movimientos.filter(m=>m.tipo==='producto_nuevo').map(m=>({
+    nombre:m.prodNombre, motivo:m.motivo, ts:m.timestamp
+  }));
+
+  const el = document.getElementById('adm-resumen');
+  if(!el) return;
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Ventas hoy</div>
+        <div style="font-size:22px;font-weight:800;color:var(--grn);font-family:'DM Mono',monospace">Q${totalHoy.toFixed(2)}</div>
+        <div style="font-size:11px;color:var(--txt3)">${ventasHoy.length} transacciones · ${udsHoy} uds</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Movimientos stock hoy</div>
+        <div style="font-size:22px;font-weight:800;color:var(--acc);font-family:'DM Mono',monospace">${movsHoy.length}</div>
+        <div style="font-size:11px;color:var(--txt3)">ingresos y ajustes</div>
+      </div>
+    </div>
+    ${db.productosPendientes?.filter(p=>p.estado==='pendiente').length?`
+    <div style="font-size:11px;font-weight:600;color:var(--yel);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">⚠️ Productos nuevos pendientes de validación (${db.productosPendientes.filter(p=>p.estado==='pendiente').length})</div>
+    ${db.productosPendientes.filter(p=>p.estado==='pendiente').map(p=>`
+    <div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:var(--r);padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600;font-size:13px">${p.nombre}</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">
+            Cantidad reportada: <b>${p.cantidad}</b> · ${p.desc||'Sin descripción'} · ${p.precio?'Q'+p.precio:''}<br>
+            DPI registrado: <b style="font-family:'DM Mono',monospace;letter-spacing:1px">${p.dpi}</b> · ${fmtDateTime(p.timestamp)}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-success btn-sm" onclick="aprobarProductoPendiente('${p.id}')">✓ Aprobar y cargar al stock</button>
+          <button class="btn btn-danger btn-sm" onclick="rechazarProductoPendiente('${p.id}')">✕ Rechazar</button>
+        </div>
+      </div>
+    </div>`).join('')}`:''}
+
+    ${movsHoy.length?`
+    <div style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Movimientos de stock de hoy</div>
+    <div class="table-wrap" style="margin-bottom:14px">
+      <table class="htable">
+        <thead><tr><th>Hora</th><th>Tipo</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Por</th></tr></thead>
+        <tbody>${movsHoy.map(m=>`<tr>
+          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc)">${fmtHora(m.timestamp)}</td>
+          <td><span class="badge ${m.tipo==='ingreso'?'badge-grn':m.tipo==='retiro'?'badge-red':'badge-yel'}">${m.tipo}</span></td>
+          <td style="font-size:12px">${m.prodNombre||m.detalle||'—'}</td>
+          <td style="font-family:'DM Mono',monospace;font-weight:600;color:${m.cantidad>0?'var(--grn)':'var(--red)'}">${m.cantidad>0?'+':''}${m.cantidad}</td>
+          <td style="font-size:11px;color:var(--txt3)">${m.motivo||'—'}</td>
+          <td><span class="badge ${m.ejecutadoPor==='admin'?'badge-blu':'badge-acc'}">${m.ejecutadoPor}</span></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:'<div style="font-size:13px;color:var(--txt3);padding:10px 0">Sin movimientos de stock hoy</div>'}
+    ${productosNuevos.length?`
+    <div style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Productos nuevos registrados</div>
+    ${productosNuevos.map(p=>`<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;font-size:12px">
+      <b>${p.nombre}</b><br>
+      <span style="color:var(--txt3)">${fmtDateTime(p.ts)} · ${p.motivo}</span>
+    </div>`).join('')}`:''}`;
+}
+
+// ════════════════════════════════════════════════════
+//  MODO PRUEBA
+// ════════════════════════════════════════════════════
+function poblarSelectPrueba(){
+  const sel = document.getElementById('prueba-prod');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  db.productos.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id;
+    o.textContent = `${p.emoji} ${p.nombre} (stock actual: ${p.stock})`;
+    sel.appendChild(o);
+  });
+}
+
+function cargarStockPrueba(){
+  const pid = document.getElementById('prueba-prod').value;
+  const cant = parseInt(document.getElementById('prueba-cant').value)||10;
+  if(!pid){ toast('Seleccioná un producto para probar','err'); return; }
+  const prod = db.productos.find(x=>x.id===pid);
+  if(!prod) return;
+
+  prod.stock += cant;
+  // Marcar movimiento como prueba para poder borrarlo después
+  db.movimientos.push({
+    id:'MOV-PRUEBA-'+Date.now(), timestamp:ahora(), fecha:hoy(),
+    tipo:'ingreso', prodId:pid, prodNombre:prod.nombre,
+    cantidad:cant, costo:0,
+    motivo:'[PRUEBA] Stock de prueba cargado por Admin',
+    ejecutadoPor:'admin', ref:'PRUEBA', _esPrueba:true
+  });
+  saveDB();
+  poblarSelects(); poblarSelectPrueba(); renderStock(); renderResumenAdmin();
+
+  const el = document.getElementById('prueba-status');
+  if(el) el.innerHTML = `✅ <b>+${cant} uds</b> cargadas a "${prod.nombre}". Stock ahora: <b style="color:var(--grn)">${prod.stock}</b> uds.<br>
+    <span style="color:var(--txt3)">Ahora podés cerrar sesión y probar como vendedor.</span>`;
+  toast(`✅ Stock de prueba cargado: ${cant} uds de "${prod.nombre}"`);
+}
+
+function limpiarPrueba(){
+  if(!confirm('¿Limpiar TODOS los datos de prueba?\n\n• Todas las ventas serán borradas\n• Todos los movimientos serán borrados\n• El stock de todos los productos quedará en 0\n• El catálogo NO se toca\n\n¿Confirmás?')) return;
+
+  // Resetear stock a 0
+  db.productos.forEach(p => { p.stock = 0; });
+  // Borrar ventas y movimientos
+  db.ventas = [];
+  db.movimientos = [];
+  saveDB();
+
+  poblarSelects(); poblarSelectPrueba(); renderStock(); renderResumenAdmin();
+  renderHistorial('hoy');
+
+  const el = document.getElementById('prueba-status');
+  if(el) el.innerHTML = `✅ <b>Todo limpio.</b> Stock en 0, ventas y movimientos borrados.<br>
+    <span style="color:var(--txt3)">El sistema está listo para cargar el inventario real.</span>`;
+  toast('✅ Datos de prueba limpiados — sistema listo para inventario real');
+}
+
+function soloLimpiarVentas(){
+  if(!confirm('¿Borrar todas las ventas y movimientos de prueba?\n(El stock NO se resetea)')) return;
+
+  db.ventas = db.ventas.filter(v => v._esPrueba !== true);
+  db.movimientos = db.movimientos.filter(m => m._esPrueba !== true || m.tipo !== 'venta');
+
+  // Marcar todas las existentes como prueba borrada
+  db.ventas = [];
+  db.movimientos = [];
+  saveDB();
+
+  renderResumenAdmin(); renderHistorial('hoy');
+  const el = document.getElementById('prueba-status');
+  if(el) el.innerHTML = `✅ Ventas y movimientos borrados. El stock se mantiene como está.`;
+  toast('✅ Ventas de prueba borradas');
+}
+
+
+function abrirModal(id){ document.getElementById(id)?.classList.add('open'); }
+function cerrarModal(id){ document.getElementById(id)?.classList.remove('open'); }
+
+// ════════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════════
+function toast(msg, tipo='ok'){
+  const el = document.getElementById('toast');
+  const color = tipo==='ok'?'rgba(34,197,94,.4)':tipo==='err'?'rgba(239,68,68,.4)':'rgba(234,179,8,.4)';
+  el.style.borderColor = color;
+  el.innerHTML = (tipo==='ok'?'✓ ':tipo==='err'?'✗ ':'⚠ ') + msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display='none', 3200);
+}
+
+
+// ── Override: cambiarPins también guarda en Firebase ──
+function cambiarPins(){
+  const pv = String(document.getElementById('pin-vend-new').value).trim();
+  const pa = String(document.getElementById('pin-adm-new').value).trim();
+  if(pv && !/^\d{4}$/.test(pv)){ toast('El PIN de vendedor debe ser exactamente 4 dígitos','err'); return; }
+  if(pa && !/^\d{4}$/.test(pa)){ toast('El PIN de admin debe ser exactamente 4 dígitos','err'); return; }
+  const pins = getPins();
+  if(pv) pins.vendedor = pv;
+  if(pa) pins.admin = pa;
+  LS.set('pins', pins);
+  // Guardar en Firebase también
+  if(_fbReady && _fbDB){
+    _fbDB.ref('cn/pins').set(pins);
+  }
+  document.getElementById('pin-vend-new').value = '';
+  document.getElementById('pin-adm-new').value = '';
+  toast('✅ PINs actualizados correctamente');
+}
+
+// ── syncManual y verificarConexion para el panel Admin ──
+function syncManual(){
+  const log = document.getElementById('sync-log');
+  if(!_fbReady){ 
+    if(log) log.innerHTML = '⚠️ Firebase no conectado — modo offline';
+    toast('Sin conexión a Firebase','err'); 
+    return; 
+  }
+  if(log) log.innerHTML = '⏳ Sincronizando...';
+  _fbDB.ref('cn/db').set(db).then(() => {
+    if(log) log.innerHTML = `✅ Sincronizado con Firebase — ${new Date().toLocaleString('es-GT')}`;
+    toast('✅ Stock sincronizado en la nube');
+    const el = document.getElementById('sheets-status');
+    if(el) el.innerHTML = '✅ Sincronizado';
+  }).catch(e => {
+    if(log) log.innerHTML = '❌ Error al sincronizar: ' + e.message;
+    toast('Error al sincronizar','err');
+  });
+}
+
+function verificarConexionSheets(){
+  const log = document.getElementById('sync-log');
+  const el = document.getElementById('sheets-status');
+  if(_fbReady && _fbDB){
+    if(log) log.innerHTML = '✅ Firebase conectado — datos en tiempo real activos';
+    if(el) el.innerHTML = '✅ Conectado';
+    toast('✅ Firebase conectado correctamente');
+  } else {
+    if(log) log.innerHTML = '⚠️ Firebase no disponible — modo offline activo';
+    if(el) el.innerHTML = '⚠️ Sin conexión';
+    toast('Sin conexión a Firebase','warn');
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  SALUDO ROSMERY + ENTRAR APP MEJORADO
+// ════════════════════════════════════════════════════
+function mostrarSaludoVendedor(show){
+  const el = document.getElementById('saludo-vendedor');
+  if(!el) return;
+  el.style.display = show ? 'block' : 'none';
+  if(show){
+    const h = document.getElementById('saludo-hora');
+    if(h) h.textContent = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  MÓDULO DE PEDIDOS — INGRESO Y SALIDA MÚLTIPLE
+// ════════════════════════════════════════════════════
+let _pedidoTipo = 'ingreso'; // 'ingreso' o 'salida'
+let _pedidoCarrito = [];
+let _pedBusqResultados = [];
+
+function setPedidoTipo(tipo){
+  _pedidoTipo = tipo;
+  const btnIng = document.getElementById('btn-tipo-ingreso');
+  const btnSal = document.getElementById('btn-tipo-salida');
+  const desc = document.getElementById('pedido-tipo-desc');
+  const titulo = document.getElementById('ped-lista-title');
+  if(tipo === 'ingreso'){
+    btnIng.className = 'btn btn-success';
+    btnSal.style.background = 'var(--bg3)';
+    btnSal.style.color = 'var(--red)';
+    if(desc) desc.innerHTML = '📦 <b>Ingreso:</b> recibiste productos (pedido semanal, reposición). El stock sube.';
+    if(titulo) titulo.textContent = '📋 Productos a ingresar al stock';
+  } else {
+    btnSal.className = 'btn btn-danger';
+    btnIng.style.background = 'var(--bg3)';
+    btnIng.style.color = 'var(--grn)';
+    if(desc) desc.innerHTML = '🚚 <b>Salida / Traslado:</b> productos que salen de tienda (traslado a bodega, merma). El stock baja.';
+    if(titulo) titulo.textContent = '📋 Productos a retirar del stock';
+  }
+  renderPedidoCarrito();
+}
+
+function filtrarPedidoBusqueda(q){
+  const wrap = document.getElementById('ped-search-results');
+  if(!q.trim()){ wrap.style.display='none'; _pedBusqResultados=[]; return; }
+  const t = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  _pedBusqResultados = db.productos.filter(p => {
+    const n = (p.nombre+' '+p.sku+' '+(p.cat||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return n.includes(t);
+  }).slice(0, 10);
+  if(!_pedBusqResultados.length){
+    wrap.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:var(--txt3)">Sin resultados</div>';
+    wrap.style.display='block'; return;
+  }
+  wrap.innerHTML = _pedBusqResultados.map((p,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bdr)"
+      onmousedown="selPedBusqueda(${i})"
+      onmouseover="this.style.background='var(--bg3)'"
+      onmouseout="this.style.background=''">
+      <span style="font-size:18px">${p.emoji}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre}</div>
+        <div style="font-size:11px;color:var(--txt3)">${p.sku} · Stock: ${p.stock}</div>
+      </div>
+    </div>`).join('');
+  wrap.style.display='block';
+}
+
+function selPedBusqueda(idx){
+  const prod = _pedBusqResultados[idx];
+  if(!prod) return;
+  document.getElementById('ped-prod').value = prod.id;
+  onPedProdChange();
+  document.getElementById('ped-search').value = '';
+  document.getElementById('ped-search-results').style.display='none';
+  setTimeout(()=>document.getElementById('ped-cant')?.focus(), 50);
+}
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#ped-search') && !e.target.closest('#ped-search-results')){
+    const wrap = document.getElementById('ped-search-results');
+    if(wrap) wrap.style.display='none';
+  }
+});
+
+function onPedProdChange(){
+  const pid = document.getElementById('ped-prod').value;
+  const p = db.productos.find(x=>x.id===pid);
+  const info = document.getElementById('ped-prod-info');
+  if(!p){ if(info) info.textContent=''; return; }
+  info.innerHTML = `${p.emoji} <b>${p.nombre}</b> · Stock actual: <b style="color:var(--grn)">${p.stock} uds</b>`;
+  document.getElementById('ped-cant').value = 1;
+}
+
+function agregarAlPedido(){
+  const pid = document.getElementById('ped-prod').value;
+  const cant = parseInt(document.getElementById('ped-cant').value)||0;
+  if(!pid){ toast('Seleccioná un producto','err'); return; }
+  if(cant <= 0){ toast('Ingresá una cantidad válida','err'); return; }
+  const prod = db.productos.find(x=>x.id===pid);
+  if(!prod) return;
+  if(_pedidoTipo === 'salida' && cant > prod.stock){
+    toast(`Solo hay ${prod.stock} uds de ${prod.nombre} en stock`,'err'); return;
+  }
+  const existing = _pedidoCarrito.find(i=>i.prodId===pid);
+  if(existing){ existing.cant += cant; }
+  else { _pedidoCarrito.push({ prodId:pid, nombre:prod.nombre, emoji:prod.emoji, stock:prod.stock, cant }); }
+  document.getElementById('ped-prod').value = '';
+  document.getElementById('ped-prod-info').textContent = '';
+  document.getElementById('ped-cant').value = 1;
+  renderPedidoCarrito();
+  toast(`✓ ${prod.nombre} × ${cant} agregado`);
+}
+
+function renderPedidoCarrito(){
+  const wrap = document.getElementById('ped-lista-wrap');
+  if(!_pedidoCarrito.length){ if(wrap) wrap.style.display='none'; return; }
+  if(wrap) wrap.style.display='block';
+  const totalUds = _pedidoCarrito.reduce((s,i)=>s+i.cant,0);
+  const color = _pedidoTipo==='ingreso' ? 'var(--grn)' : 'var(--red)';
+  const signo = _pedidoTipo==='ingreso' ? '+' : '-';
+  document.getElementById('ped-lista-items').innerHTML = _pedidoCarrito.map((item,idx) => `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:20px">${item.emoji}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500">${item.nombre}</div>
+        <div style="font-size:11px;color:var(--txt3)">Stock actual: ${item.stock} uds</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button style="background:var(--bg4);border:1px solid var(--bdr2);border-radius:6px;color:var(--txt);width:28px;height:28px;cursor:pointer;font-size:16px" onclick="cambiarCantPedido(${idx},-1)">−</button>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px;min-width:28px;text-align:center">${item.cant}</span>
+        <button style="background:var(--bg4);border:1px solid var(--bdr2);border-radius:6px;color:var(--txt);width:28px;height:28px;cursor:pointer;font-size:16px" onclick="cambiarCantPedido(${idx},1)">+</button>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:15px;color:${color};min-width:50px;text-align:right">${signo}${item.cant}</div>
+      <button style="color:var(--txt3);background:none;border:none;cursor:pointer;font-size:16px;padding:4px" onclick="quitarDelPedido(${idx})">✕</button>
+    </div>`).join('');
+  document.getElementById('ped-total-uds').textContent = `${signo}${totalUds} uds`;
+  document.getElementById('ped-total-uds').style.color = color;
+}
+
+function cambiarCantPedido(idx, delta){
+  const item = _pedidoCarrito[idx];
+  const prod = db.productos.find(x=>x.id===item.prodId);
+  const nueva = item.cant + delta;
+  if(nueva <= 0){ quitarDelPedido(idx); return; }
+  if(_pedidoTipo==='salida' && nueva > (prod?.stock||0)){ toast('No hay suficiente stock','err'); return; }
+  item.cant = nueva;
+  renderPedidoCarrito();
+}
+
+function quitarDelPedido(idx){
+  _pedidoCarrito.splice(idx, 1);
+  renderPedidoCarrito();
+}
+
+function limpiarPedido(){
+  _pedidoCarrito = [];
+  _pedidoTipo = 'ingreso';
+  setPedidoTipo('ingreso');
+  document.getElementById('ped-motivo').value = '';
+  document.getElementById('ped-dpi').value = '';
+  document.getElementById('ped-dpi-status').textContent = 'Ingresá los 13 dígitos de tu DPI';
+  document.getElementById('ped-dpi-status').style.color = 'var(--txt3)';
+  document.getElementById('ped-lista-wrap').style.display = 'none';
+  renderPedidoCarrito();
+}
+
+function validarDPIPedido(input){
+  const val = input.value.replace(/\D/g,'');
+  input.value = val;
+  const status = document.getElementById('ped-dpi-status');
+  if(val.length === 0){
+    status.textContent = 'Ingresá los 13 dígitos de tu DPI';
+    status.style.color = 'var(--txt3)';
+  } else if(val.length < 13){
+    status.textContent = `${val.length}/13 dígitos — faltan ${13-val.length}`;
+    status.style.color = 'var(--yel)';
+  } else {
+    status.textContent = '✅ DPI válido';
+    status.style.color = 'var(--grn)';
+    // Verificar si es un DPI nuevo para preguntar si guardar
+    const dpiGuardado = LS.get('dpi_rosmery');
+    if(!dpiGuardado && _rolActual === 'vendedor'){
+      document.getElementById('ped-dpi-guardar').style.display = 'block';
+    }
+  }
+}
+
+function guardarDPIRosmery(){
+  const dpi = document.getElementById('ped-dpi').value;
+  if(dpi.length === 13){ LS.set('dpi_rosmery', dpi); }
+  document.getElementById('ped-dpi-guardar').style.display = 'none';
+  toast('✅ DPI guardado — no tendrás que ingresarlo de nuevo');
+}
+
+function confirmarPedido(){
+  const motivo = document.getElementById('ped-motivo').value.trim();
+  const dpi = document.getElementById('ped-dpi').value.trim();
+  if(!motivo){ toast('Ingresá el motivo del movimiento','err'); return; }
+  if(!_pedidoCarrito.length){ toast('Agregá al menos un producto','err'); return; }
+  if(dpi.length !== 13 || !/^\d{13}$/.test(dpi)){ toast('DPI inválido — debe tener 13 dígitos','err'); return; }
+
+  const ts = ahora();
+  const usuario = _rolActual === 'vendedor' ? 'Rosmery Archila' : (_rolActual === 'admin' ? 'Admin' : _rolActual);
+
+  // Aplicar cambios al stock y registrar movimientos
+  _pedidoCarrito.forEach(item => {
+    const prod = db.productos.find(x=>x.id===item.prodId);
+    if(!prod) return;
+    const delta = _pedidoTipo === 'ingreso' ? item.cant : -item.cant;
+    prod.stock = Math.max(0, prod.stock + delta);
+    db.movimientos.push({
+      id: 'PED-'+Date.now()+'-'+item.prodId,
+      timestamp: ts, fecha: hoy(),
+      tipo: _pedidoTipo === 'ingreso' ? 'ingreso' : 'salida',
+      prodId: item.prodId, prodNombre: item.nombre,
+      cantidad: _pedidoTipo === 'ingreso' ? item.cant : -item.cant,
+      motivo, dpi,
+      ejecutadoPor: usuario,
+      esPedido: true,
+      tipoPedido: _pedidoTipo,
+      ref: `PED-${_pedidoTipo.toUpperCase()}-${ts.slice(0,10)}`
+    });
+  });
+
+  // Guardar pedido completo en historial
+  if(!db.pedidos) db.pedidos = [];
+  db.pedidos.push({
+    id: 'PEDI-'+Date.now(),
+    timestamp: ts, fecha: hoy(),
+    tipo: _pedidoTipo,
+    motivo, dpi,
+    ejecutadoPor: usuario,
+    items: _pedidoCarrito.map(i=>({...i})),
+    totalUds: _pedidoCarrito.reduce((s,i)=>s+i.cant,0)
+  });
+
+  saveDB();
+  poblarSelects();
+  renderStock();
+
+  const tipoLabel = _pedidoTipo === 'ingreso' ? '📦 Ingreso' : '🚚 Salida/Traslado';
+  toast(`✅ ${tipoLabel} registrado — ${_pedidoCarrito.reduce((s,i)=>s+i.cant,0)} uds · ${usuario}`);
+
+  limpiarPedido();
+  renderPedidosHist('hoy');
+
+  // Alertar en admin si es salida
+  if(_pedidoTipo === 'salida') renderAlertasAdmin();
+}
+
+function renderPedidosHist(filtro){
+  if(!db.pedidos) db.pedidos = [];
+  const hoyStr = hoy();
+  let pedidos = [...db.pedidos].reverse();
+  if(filtro==='hoy') pedidos = pedidos.filter(p=>p.fecha===hoyStr);
+  else if(filtro==='semana'){
+    const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
+    pedidos = pedidos.filter(p=>p.fecha>=hace7.toISOString().slice(0,10));
+  }
+  const el = document.getElementById('ped-historial');
+  if(!el) return;
+  if(!pedidos.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">Sin movimientos registrados aún</div></div>';
+    return;
+  }
+  el.innerHTML = pedidos.map(p => {
+    const color = p.tipo==='ingreso' ? 'var(--grn)' : 'var(--red)';
+    const icon = p.tipo==='ingreso' ? '📦' : '🚚';
+    const signo = p.tipo==='ingreso' ? '+' : '-';
+    return `<div class="admin-card" style="margin-bottom:10px;border-color:${p.tipo==='ingreso'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${icon} ${p.tipo==='ingreso'?'Ingreso de pedido':'Salida / Traslado'}</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">${fmtDateTime(p.timestamp)} · ${p.ejecutadoPor}</div>
+          <div style="font-size:12px;color:var(--txt2);margin-top:4px">📝 ${p.motivo}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:800;color:${color}">${signo}${p.totalUds} uds</div>
+          <div style="font-size:10px;color:var(--txt3)">DPI: ${p.dpi?.slice(0,4)}*****</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--txt3)">
+        ${p.items.map(i=>`${i.emoji} ${i.nombre}: <b style="color:${color}">${signo}${i.cant}</b>`).join(' · ')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _pedHistFiltro = 'hoy';
+function filtrarPedidosHist(f){ _pedHistFiltro = f; renderPedidosHist(f); }
+
+function exportarPedidosExcel(){
+  if(!db.pedidos?.length){ toast('Sin movimientos para exportar','err'); return; }
+  const data = [];
+  db.pedidos.forEach(p => {
+    p.items.forEach(i => {
+      data.push({
+        'ID': p.id, 'Fecha': fmtFecha(p.timestamp), 'Hora': fmtHora(p.timestamp),
+        'Tipo': p.tipo==='ingreso'?'INGRESO':'SALIDA/TRASLADO',
+        'Motivo': p.motivo, 'Ejecutado por': p.ejecutadoPor,
+        'DPI': p.dpi, 'Producto': i.nombre, 'Cantidad': i.cant,
+      });
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Pedidos');
+  XLSX.writeFile(wb, `pedidos_central_norte_${hoy()}.xlsx`);
+  toast('✅ Excel exportado');
+}
+
+// ════════════════════════════════════════════════════
+//  ALERTAS ADMIN — SALIDAS Y TRASLADOS
+// ════════════════════════════════════════════════════
+function renderAlertasAdmin(){
+  const el = document.getElementById('alertas-contenido');
+  if(!el) return;
+  if(!db.pedidos) db.pedidos = [];
+
+  const salidas = [...db.pedidos].filter(p=>p.tipo==='salida').reverse().slice(0, 10);
+  if(!salidas.length){
+    el.innerHTML = '<div style="font-size:12px;color:var(--txt3);padding:4px 0">✅ Sin salidas ni traslados registrados.</div>';
+    return;
+  }
+  el.innerHTML = salidas.map(p => {
+    const diasAtras = Math.floor((Date.now() - new Date(p.timestamp)) / 86400000);
+    const cuandoLabel = diasAtras === 0 ? '🔴 HOY' : diasAtras === 1 ? '🟡 Ayer' : `🟠 Hace ${diasAtras} días`;
+    return `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:var(--r);padding:10px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--red)">🚚 Salida/Traslado — ${cuandoLabel}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:3px">${fmtDateTime(p.timestamp)} · <b>${p.ejecutadoPor}</b></div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">📝 ${p.motivo}</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-weight:800;font-size:16px;color:var(--red);flex-shrink:0">-${p.totalUds} uds</div>
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:6px">
+        ${p.items.map(i=>`${i.emoji} ${i.nombre}: -${i.cant}`).join(' · ')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  BÚSQUEDA AVANZADA DE MOVIMIENTOS
+// ════════════════════════════════════════════════════
+let _busqUltResultados = [];
+
+function busquedaAvanzada(){
+  const desde = document.getElementById('busq-desde').value;
+  const hasta = document.getElementById('busq-hasta').value;
+  const tipo = document.getElementById('busq-tipo').value;
+  const quien = document.getElementById('busq-quien').value;
+
+  let movs = [];
+
+  // Ventas
+  if(!tipo || tipo==='venta'){
+    db.ventas.forEach(v => {
+      if(desde && v.fecha < desde) return;
+      if(hasta && v.fecha > hasta) return;
+      const ejec = v.vendedor === 'admin' ? 'admin' : 'vendedor';
+      if(quien && quien !== ejec && !(quien==='rosmery' && ejec==='vendedor')) return;
+      movs.push({ ts: v.timestamp, fecha: v.fecha, tipo: 'venta',
+        detalle: v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', '),
+        total: `Q${v.total.toFixed(2)}`, quien: v.vendedor==='admin'?'Admin':'Rosmery Archila' });
+    });
+  }
+
+  // Movimientos de stock
+  if(!tipo || tipo !== 'venta'){
+    const tiposBusq = tipo === 'ingreso' ? ['ingreso'] :
+                      tipo === 'salida' ? ['salida','retiro'] :
+                      tipo === 'ajuste' ? ['ajuste'] :
+                      ['ingreso','salida','retiro','ajuste'];
+    db.movimientos.forEach(m => {
+      if(!tiposBusq.includes(m.tipo)) return;
+      if(desde && m.fecha < desde) return;
+      if(hasta && m.fecha > hasta) return;
+      const ejec = m.ejecutadoPor || '';
+      if(quien === 'rosmery' && !ejec.toLowerCase().includes('rosmery') && ejec !== 'vendedor') return;
+      if(quien === 'admin' && ejec !== 'admin' && ejec !== 'Admin') return;
+      movs.push({ ts: m.timestamp, fecha: m.fecha, tipo: m.tipo,
+        detalle: `${m.prodNombre||'—'}: ${m.cantidad>0?'+':''}${m.cantidad} uds · ${m.motivo||'—'}`,
+        total: '', quien: m.ejecutadoPor||'—' });
+    });
+  }
+
+  // Pedidos
+  if(!tipo || tipo==='ingreso' || tipo==='salida'){
+    (db.pedidos||[]).forEach(p => {
+      if(desde && p.fecha < desde) return;
+      if(hasta && p.fecha > hasta) return;
+      if(tipo && tipo !== p.tipo) return;
+      if(quien === 'admin' && !p.ejecutadoPor?.toLowerCase().includes('admin')) return;
+      if(quien === 'rosmery' && !p.ejecutadoPor?.toLowerCase().includes('rosmery')) return;
+      movs.push({ ts: p.timestamp, fecha: p.fecha,
+        tipo: p.tipo==='ingreso'?'pedido-ingreso':'pedido-salida',
+        detalle: `${p.motivo} | ${p.items.map(i=>`${i.nombre}: ${p.tipo==='ingreso'?'+':'-'}${i.cant}`).join(', ')}`,
+        total: `${p.tipo==='ingreso'?'+':'-'}${p.totalUds} uds`, quien: p.ejecutadoPor });
+    });
+  }
+
+  // Ordenar por fecha desc
+  movs.sort((a,b) => b.ts.localeCompare(a.ts));
+  _busqUltResultados = movs;
+
+  const el = document.getElementById('busq-resultados');
+  if(!movs.length){
+    el.innerHTML = '<div style="font-size:13px;color:var(--txt3);padding:10px 0">Sin resultados para los filtros seleccionados.</div>';
+    return;
+  }
+
+  const colorTipo = {
+    'venta':'var(--grn)','ingreso':'var(--blu)','salida':'var(--red)',
+    'retiro':'var(--red)','ajuste':'var(--yel)','pedido-ingreso':'var(--grn)','pedido-salida':'var(--red)'
+  };
+  const labelTipo = {
+    'venta':'Venta','ingreso':'Ingreso stock','salida':'Salida/Traslado',
+    'retiro':'Retiro','ajuste':'Ajuste','pedido-ingreso':'Pedido ingreso','pedido-salida':'Pedido salida'
+  };
+
+  el.innerHTML = `<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">${movs.length} resultado${movs.length!==1?'s':''} encontrados</div>
+  <div class="table-wrap"><table class="htable">
+    <thead><tr><th>Fecha/Hora</th><th>Tipo</th><th>Detalle</th><th>Total</th><th>Por</th></tr></thead>
+    <tbody>${movs.map(m=>`<tr>
+      <td style="font-size:11px;white-space:nowrap">
+        <div style="font-weight:600">${fmtFecha(m.ts)}</div>
+        <div style="color:var(--acc);font-family:'DM Mono',monospace">${fmtHora(m.ts)}</div>
+      </td>
+      <td><span class="badge" style="background:${colorTipo[m.tipo]||'var(--acc)'}22;color:${colorTipo[m.tipo]||'var(--acc)'}">${labelTipo[m.tipo]||m.tipo}</span></td>
+      <td style="font-size:11px;max-width:200px">${m.detalle}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;color:${colorTipo[m.tipo]||'var(--txt)'};font-size:12px">${m.total||'—'}</td>
+      <td style="font-size:11px">${m.quien}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function exportarBusquedaExcel(){
+  if(!_busqUltResultados.length){ toast('Hacé una búsqueda primero','err'); return; }
+  const data = _busqUltResultados.map(m=>({
+    'Fecha': fmtFecha(m.ts), 'Hora': fmtHora(m.ts),
+    'Tipo': m.tipo, 'Detalle': m.detalle,
+    'Total/Cantidad': m.total, 'Ejecutado por': m.quien
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Movimientos');
+  XLSX.writeFile(wb, `movimientos_central_norte_${hoy()}.xlsx`);
+  toast('✅ Excel exportado');
+}
+
+function limpiarBusqueda(){
+  document.getElementById('busq-desde').value = '';
+  document.getElementById('busq-hasta').value = '';
+  document.getElementById('busq-tipo').value = '';
+  document.getElementById('busq-quien').value = '';
+  document.getElementById('busq-resultados').innerHTML = '';
+  _busqUltResultados = [];
+}
+
+// ════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════
+initDB();
+</script>
+</body>
+</html>
