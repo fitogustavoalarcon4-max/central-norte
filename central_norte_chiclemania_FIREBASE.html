@@ -1280,27 +1280,103 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <div class="modal-sub">Verificá los productos antes de confirmar</div>
     <div class="modal-venta-items" id="modal-conf-items"></div>
 
-    <!-- Subtotal y descuento -->
+    <!-- Panel de precios avanzado -->
     <div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+
+      <!-- Subtotal -->
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bdr)">
         <span style="font-size:13px;color:var(--txt2)">Subtotal</span>
-        <span style="font-family:'DM Mono',monospace;font-weight:600;font-size:14px" id="modal-conf-subtotal">Q0.00</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;font-size:14px" id="modal-conf-subtotal">Q0.00</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:13px;color:var(--txt2);white-space:nowrap">Descuento Q</span>
-        <input type="number" id="conf-descuento" min="0" step="0.01" placeholder="0.00"
-          style="background:var(--bg);border:1px solid var(--bdr2);border-radius:8px;color:var(--txt);font-size:14px;padding:6px 10px;width:100%;font-family:'DM Mono',monospace;outline:none"
-          oninput="actualizarTotalModal()">
+
+      <!-- Tipo de ajuste -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button id="btn-adj-none"   onclick="setTipoAjuste('none')"   class="btn btn-sec btn-sm" style="flex:1;font-size:11px">Sin ajuste</button>
+        <button id="btn-adj-desc-q" onclick="setTipoAjuste('desc-q')" class="btn btn-sec btn-sm" style="flex:1;font-size:11px">🏷️ Desc. Q</button>
+        <button id="btn-adj-desc-p" onclick="setTipoAjuste('desc-p')" class="btn btn-sec btn-sm" style="flex:1;font-size:11px">🏷️ Desc. %</button>
+        <button id="btn-adj-rec-p"  onclick="setTipoAjuste('rec-p')"  class="btn btn-sec btn-sm" style="flex:1;font-size:11px">💳 Recargo %</button>
+        <button id="btn-adj-total"  onclick="setTipoAjuste('total')"  class="btn btn-sec btn-sm" style="flex:1;font-size:11px">✏️ Total</button>
       </div>
-      <div id="conf-motivo-desc-wrap" style="display:none;margin-bottom:6px">
-        <input type="text" id="conf-motivo-desc" placeholder="Motivo del descuento (obligatorio) ej: cortesía, oferta..."
+
+      <!-- Campos de ajuste -->
+      <div id="adj-none-wrap" style="display:none"></div>
+
+      <div id="adj-desc-q-wrap" style="display:none;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:4px">Descuento en quetzales</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--txt2)">Q</span>
+          <input type="number" id="adj-desc-q-val" min="0" step="0.01" placeholder="0.00"
+            style="background:var(--bg);border:1px solid var(--yel);border-radius:8px;color:var(--txt);font-size:16px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;flex:1;outline:none"
+            oninput="recalcularTotal()" onclick="this.select()">
+          <span id="adj-desc-q-result" style="font-size:12px;color:var(--yel);white-space:nowrap"></span>
+        </div>
+      </div>
+
+      <div id="adj-desc-p-wrap" style="display:none;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:4px">Descuento en porcentaje</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" id="adj-desc-p-val" min="0" max="100" step="0.5" placeholder="0"
+            style="background:var(--bg);border:1px solid var(--yel);border-radius:8px;color:var(--txt);font-size:16px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;flex:1;outline:none"
+            oninput="recalcularTotal()" onclick="this.select()">
+          <span style="font-size:13px;color:var(--txt2)">%</span>
+          <span id="adj-desc-p-result" style="font-size:12px;color:var(--yel);white-space:nowrap"></span>
+        </div>
+        <!-- Atajos rápidos de % -->
+        <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
+          <button onclick="setDescPct(5)"  class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">5%</button>
+          <button onclick="setDescPct(7)"  class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">7%</button>
+          <button onclick="setDescPct(10)" class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">10%</button>
+          <button onclick="setDescPct(15)" class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">15%</button>
+          <button onclick="setDescPct(20)" class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">20%</button>
+        </div>
+      </div>
+
+      <div id="adj-rec-p-wrap" style="display:none;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:4px">Recargo en porcentaje (ej: Visa cuotas)</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" id="adj-rec-p-val" min="0" max="50" step="0.5" placeholder="0"
+            style="background:var(--bg);border:1px solid var(--blu);border-radius:8px;color:var(--txt);font-size:16px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;flex:1;outline:none"
+            oninput="recalcularTotal()" onclick="this.select()">
+          <span style="font-size:13px;color:var(--txt2)">%</span>
+          <span id="adj-rec-p-result" style="font-size:12px;color:var(--blu);white-space:nowrap"></span>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:6px">
+          <button onclick="setRecargoPct(7)"  class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">7% Visa</button>
+          <button onclick="setRecargoPct(5)"  class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">5%</button>
+          <button onclick="setRecargoPct(10)" class="btn btn-sec btn-sm" style="font-size:11px;padding:3px 8px">10%</button>
+        </div>
+      </div>
+
+      <div id="adj-total-wrap" style="display:none;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--txt3);margin-bottom:4px">Editá el total directamente — el precio unitario se recalcula</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--txt2)">Q</span>
+          <input type="number" id="adj-total-val" min="0" step="0.01" placeholder="0.00"
+            style="background:var(--bg);border:1px solid var(--acc);border-radius:8px;color:var(--txt);font-size:18px;font-family:'DM Mono',monospace;font-weight:800;padding:7px 10px;flex:1;outline:none"
+            oninput="recalcularTotal()" onclick="this.select()">
+        </div>
+        <div id="adj-total-desglose" style="font-size:11px;color:var(--txt3);margin-top:6px;line-height:1.6"></div>
+      </div>
+
+      <!-- Motivo -->
+      <div id="adj-motivo-wrap" style="display:none;margin-bottom:8px">
+        <input type="text" id="conf-motivo-desc" placeholder="Motivo del ajuste (obligatorio) ej: 5 máquinas, Visa cuotas..."
           style="background:var(--bg);border:1px solid var(--yel);border-radius:8px;color:var(--txt);font-size:13px;padding:7px 10px;width:100%;outline:none">
       </div>
+
+      <!-- Línea de ajuste visible -->
+      <div id="adj-linea" style="display:none;font-size:12px;margin-bottom:8px;padding:6px 8px;border-radius:6px"></div>
+
+      <!-- TOTAL FINAL -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--bdr)">
         <span style="font-size:14px;font-weight:700;color:var(--txt)">TOTAL</span>
-        <span style="font-family:'DM Mono',monospace;font-weight:800;font-size:22px;color:var(--grn)" id="modal-conf-total">Q0.00</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:800;font-size:24px;color:var(--grn)" id="modal-conf-total">Q0.00</span>
       </div>
     </div>
+
+    <!-- Campo oculto legacy para compatibilidad -->
+    <input type="hidden" id="conf-descuento" value="0">
+    <div id="conf-motivo-desc-wrap" style="display:none"></div>
 
     <div class="fgr" style="margin-bottom:14px">
       <label>Nombre del cliente (opcional)</label>
@@ -2270,50 +2346,212 @@ function limpiarCarrito(){
 // ════════════════════════════════════════════════════
 //  CONFIRMAR VENTA
 // ════════════════════════════════════════════════════
+// Estado del ajuste activo en el modal
+let _tipoAjuste = 'none'; // none | desc-q | desc-p | rec-p | total
+let _subtotalBase = 0;
+
 function abrirConfVenta(){
   if(!carrito.length){ toast('El carrito está vacío','err'); return; }
-  const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
+  _subtotalBase = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
+  _tipoAjuste = 'none';
+
   document.getElementById('modal-conf-items').innerHTML = carrito.map(item => {
     const precioUso = item.precioCustom ?? item.precio;
     const modificado = item.precioCustom !== undefined && item.precioCustom !== item.precio;
     const subtItem = precioUso * item.cant;
     return `<div class="modal-venta-row">
-      <span>${item.emoji} ${item.nombre} × ${item.cant}${item.esPelota?' bol.':''}${modificado?` <span style="font-size:10px;color:var(--yel)">(precio editado: Q${precioUso})</span>`:''}</span>
+      <span>${item.emoji} ${item.nombre} × ${item.cant}${item.esPelota?' bol.':''}${modificado?` <span style="font-size:10px;color:var(--yel)">(Q${precioUso} c/u)</span>`:''}</span>
       <span style="font-family:'DM Mono',monospace;font-weight:600;color:${modificado&&item.precioCustom<item.precio?'var(--yel)':'var(--grn)'}">Q${subtItem.toFixed(2)}</span>
     </div>`;
   }).join('');
-  document.getElementById('modal-conf-subtotal').textContent = `Q${subtotal.toFixed(2)}`;
-  document.getElementById('modal-conf-total').textContent = `Q${subtotal.toFixed(2)}`;
-  document.getElementById('conf-descuento').value = '';
+
+  document.getElementById('modal-conf-subtotal').textContent = `Q${_subtotalBase.toFixed(2)}`;
+  document.getElementById('modal-conf-total').textContent = `Q${_subtotalBase.toFixed(2)}`;
+  document.getElementById('modal-conf-total').style.color = 'var(--grn)';
+
+  // Precargar total editable con el subtotal
+  const adjTotalEl = document.getElementById('adj-total-val');
+  if(adjTotalEl) adjTotalEl.value = _subtotalBase.toFixed(2);
+
+  // Reset campos
+  ['adj-desc-q-val','adj-desc-p-val','adj-rec-p-val'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
   document.getElementById('conf-motivo-desc').value = '';
-  document.getElementById('conf-motivo-desc-wrap').style.display = 'none';
-  document.getElementById('conf-cliente').value = '';
+  document.getElementById('conf-descuento').value = '0';
+
+  setTipoAjuste('none');
+
+  const cliEl = document.getElementById('conf-cliente');
+  if(cliEl){ cliEl.value = ''; delete cliEl.dataset.clienteId; }
   abrirModal('modal-conf');
 }
 
-function actualizarTotalModal(){
-  const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
-  const descuento = parseFloat(document.getElementById('conf-descuento').value)||0;
-  const total = Math.max(0, subtotal - descuento);
-  document.getElementById('modal-conf-total').textContent = `Q${total.toFixed(2)}`;
-  // Mostrar campo de motivo solo si hay descuento
-  document.getElementById('conf-motivo-desc-wrap').style.display = descuento > 0 ? 'block' : 'none';
-  // Color de alerta si descuento es mayor al subtotal
-  const totalEl = document.getElementById('modal-conf-total');
-  totalEl.style.color = descuento > subtotal ? 'var(--red)' : 'var(--grn)';
+function setTipoAjuste(tipo){
+  _tipoAjuste = tipo;
+  // Resaltar botón activo
+  ['none','desc-q','desc-p','rec-p','total'].forEach(t => {
+    const btn = document.getElementById('btn-adj-'+t);
+    if(!btn) return;
+    btn.style.background = t===tipo ? 'rgba(249,115,22,.25)' : '';
+    btn.style.borderColor = t===tipo ? 'var(--acc)' : '';
+    btn.style.color = t===tipo ? 'var(--acc)' : '';
+  });
+  // Mostrar/ocultar paneles
+  ['desc-q','desc-p','rec-p','total'].forEach(t => {
+    const wrap = document.getElementById('adj-'+t+'-wrap');
+    if(wrap) wrap.style.display = t===tipo ? 'block' : 'none';
+  });
+  if(tipo==='none'){
+    document.getElementById('adj-motivo-wrap').style.display = 'none';
+    document.getElementById('adj-linea').style.display = 'none';
+    document.getElementById('modal-conf-total').textContent = `Q${_subtotalBase.toFixed(2)}`;
+    document.getElementById('modal-conf-total').style.color = 'var(--grn)';
+    document.getElementById('conf-descuento').value = '0';
+  } else {
+    recalcularTotal();
+  }
 }
+
+function setDescPct(pct){
+  document.getElementById('adj-desc-p-val').value = pct;
+  recalcularTotal();
+}
+function setRecargoPct(pct){
+  document.getElementById('adj-rec-p-val').value = pct;
+  recalcularTotal();
+}
+
+function recalcularTotal(){
+  const sub = _subtotalBase;
+  let total = sub;
+  let ajuste = 0;
+  let labelLinea = '';
+  let colorLinea = 'var(--yel)';
+  let desglose = '';
+
+  if(_tipoAjuste === 'desc-q'){
+    ajuste = parseFloat(document.getElementById('adj-desc-q-val').value)||0;
+    total = Math.max(0, sub - ajuste);
+    const pctReal = sub>0 ? (ajuste/sub*100).toFixed(1) : '0';
+    const resEl = document.getElementById('adj-desc-q-result');
+    if(resEl) resEl.textContent = ajuste>0 ? `(${pctReal}%)` : '';
+    labelLinea = ajuste>0 ? `🏷️ Descuento −Q${ajuste.toFixed(2)} (${pctReal}%)` : '';
+
+  } else if(_tipoAjuste === 'desc-p'){
+    const pct = parseFloat(document.getElementById('adj-desc-p-val').value)||0;
+    ajuste = sub * pct / 100;
+    total = Math.max(0, sub - ajuste);
+    const resEl = document.getElementById('adj-desc-p-result');
+    if(resEl) resEl.textContent = pct>0 ? `−Q${ajuste.toFixed(2)}` : '';
+    labelLinea = pct>0 ? `🏷️ Descuento ${pct}% = −Q${ajuste.toFixed(2)}` : '';
+    ajuste = -ajuste; // negativo = descuento
+
+  } else if(_tipoAjuste === 'rec-p'){
+    const pct = parseFloat(document.getElementById('adj-rec-p-val').value)||0;
+    ajuste = sub * pct / 100;
+    total = sub + ajuste;
+    const resEl = document.getElementById('adj-rec-p-result');
+    if(resEl) resEl.textContent = pct>0 ? `+Q${ajuste.toFixed(2)}` : '';
+    labelLinea = pct>0 ? `💳 Recargo ${pct}% = +Q${ajuste.toFixed(2)}` : '';
+    colorLinea = 'var(--blu)';
+    ajuste = ajuste; // positivo = recargo
+
+  } else if(_tipoAjuste === 'total'){
+    total = parseFloat(document.getElementById('adj-total-val').value)||sub;
+    ajuste = total - sub; // puede ser negativo (descuento) o positivo (aumento)
+    // Calcular precio unitario por producto
+    const nItems = carrito.length;
+    if(nItems > 0 && sub > 0){
+      const factor = total / sub;
+      desglose = carrito.map(item=>{
+        const precioBase = item.precioCustom ?? item.precio;
+        const nuevoPrecio = precioBase * factor;
+        const cantLabel = item.esPelota ? `${item.cant} bol.` : `${item.cant} uds`;
+        return `${item.emoji} ${item.nombre.substring(0,22)}: <b style="color:var(--acc)">Q${nuevoPrecio.toFixed(2)}</b>/u × ${cantLabel} = Q${(nuevoPrecio*item.cant).toFixed(2)}`;
+      }).join('<br>');
+    }
+    const diff = total - sub;
+    labelLinea = diff < 0 ? `🏷️ Descuento = −Q${Math.abs(diff).toFixed(2)}` : diff > 0 ? `💰 Aumento = +Q${diff.toFixed(2)}` : '';
+    colorLinea = diff < 0 ? 'var(--yel)' : diff > 0 ? 'var(--blu)' : 'var(--grn)';
+    ajuste = diff;
+  }
+
+  // Actualizar total en pantalla
+  const totalEl = document.getElementById('modal-conf-total');
+  totalEl.textContent = `Q${total.toFixed(2)}`;
+  totalEl.style.color = total < sub ? 'var(--yel)' : total > sub ? 'var(--blu)' : 'var(--grn)';
+
+  // Línea de resumen del ajuste
+  const lineaEl = document.getElementById('adj-linea');
+  if(lineaEl){
+    if(labelLinea){
+      lineaEl.style.display='block';
+      lineaEl.style.background = colorLinea+'18';
+      lineaEl.style.border = '1px solid '+colorLinea+'44';
+      lineaEl.style.color = colorLinea;
+      lineaEl.textContent = labelLinea;
+    } else {
+      lineaEl.style.display='none';
+    }
+  }
+
+  // Desglose por producto (modo total editable)
+  const desgloseEl = document.getElementById('adj-total-desglose');
+  if(desgloseEl) desgloseEl.innerHTML = desglose;
+
+  // Mostrar campo de motivo si hay ajuste
+  const hayAjuste = _tipoAjuste !== 'none' && Math.abs(total - sub) > 0.001;
+  document.getElementById('adj-motivo-wrap').style.display = hayAjuste ? 'block' : 'none';
+
+  // Guardar en campo legacy para confirmarVenta
+  document.getElementById('conf-descuento').value = (sub - total).toFixed(2); // positivo=descuento, negativo=recargo
+}
+
+// Mantener compatibilidad con código anterior
+function actualizarTotalModal(){ recalcularTotal(); }
+
+
 
 function confirmarVenta(){
   const ts = ahora();
-  const descuentoEl = document.getElementById('conf-descuento');
-  const motivoDescEl = document.getElementById('conf-motivo-desc');
-  const descuento = parseFloat(descuentoEl?.value)||0;
-  const motivoDesc = motivoDescEl?.value.trim()||'';
-  if(descuento > 0 && !motivoDesc){
-    toast('Escribí el motivo del descuento','err'); return;
-  }
+  const motivoDesc = document.getElementById('conf-motivo-desc')?.value.trim()||'';
   const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
-  const total = Math.max(0, subtotal - descuento);
+
+  // Calcular total según tipo de ajuste activo
+  let total = subtotal;
+  let ajusteQ = 0;
+  let tipoAjusteLabel = '';
+
+  if(_tipoAjuste === 'desc-q'){
+    ajusteQ = parseFloat(document.getElementById('adj-desc-q-val')?.value)||0;
+    total = Math.max(0, subtotal - ajusteQ);
+    tipoAjusteLabel = `Descuento Q${ajusteQ.toFixed(2)}`;
+  } else if(_tipoAjuste === 'desc-p'){
+    const pct = parseFloat(document.getElementById('adj-desc-p-val')?.value)||0;
+    ajusteQ = subtotal * pct / 100;
+    total = Math.max(0, subtotal - ajusteQ);
+    tipoAjusteLabel = `Descuento ${pct}% = Q${ajusteQ.toFixed(2)}`;
+    ajusteQ = -ajusteQ;
+  } else if(_tipoAjuste === 'rec-p'){
+    const pct = parseFloat(document.getElementById('adj-rec-p-val')?.value)||0;
+    ajusteQ = subtotal * pct / 100;
+    total = subtotal + ajusteQ;
+    tipoAjusteLabel = `Recargo ${pct}% = +Q${ajusteQ.toFixed(2)}`;
+  } else if(_tipoAjuste === 'total'){
+    total = parseFloat(document.getElementById('adj-total-val')?.value)||subtotal;
+    ajusteQ = total - subtotal;
+    tipoAjusteLabel = ajusteQ < 0 ? `Descuento total = −Q${Math.abs(ajusteQ).toFixed(2)}` : ajusteQ > 0 ? `Aumento total = +Q${ajusteQ.toFixed(2)}` : '';
+  }
+
+  const hayAjuste = _tipoAjuste !== 'none' && Math.abs(total - subtotal) > 0.001;
+  if(hayAjuste && !motivoDesc){
+    toast('Escribí el motivo del ajuste de precio','err'); return;
+  }
+
+  // Para compatibilidad con el resto del código: descuento = subtotal - total (positivo=descuento, negativo=recargo)
+  const descuento = subtotal - total;
+
   const clienteEl = document.getElementById('conf-cliente');
   const cliente = clienteEl.value.trim() || 'Consumidor Final';
   const clienteId = clienteEl.dataset.clienteId || null;
@@ -2330,6 +2568,8 @@ function confirmarVenta(){
     telefono,
     descuento,
     motivoDescuento: motivoDesc,
+    tipoAjuste: _tipoAjuste,
+    tipoAjusteLabel,
     items: carrito.map(i => ({
       prodId: i.prodId,
       nombre: i.nombre,
@@ -2379,7 +2619,7 @@ function confirmarVenta(){
     alertarStockNegativoAdmin(prodsNegativos);
     setTimeout(()=>toast(`🔴 STOCK NEGATIVO — Pedí reposición a bodega`, 'err'), 200);
   } else {
-    toast(`✅ Venta Q${subtotal.toFixed(2)}${descuento?' — Descuento Q'+descuento.toFixed(2)+' → Total Q'+total.toFixed(2):''}`, 'ok');
+    toast(`✅ Venta registrada Q${total.toFixed(2)}${tipoAjusteLabel?' — '+tipoAjusteLabel:''}`, 'ok');
   }
   renderStock();
   sincronizarVenta(venta);
