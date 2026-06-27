@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#f97316">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -164,14 +164,22 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 /* ── CARRITO DE VENTA ── */
 .cart-items { margin-bottom: 14px; }
 .cart-item {
-  display: flex; align-items: center; gap: 10px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
   background: var(--bg3); border: 1px solid var(--bdr2); border-radius: var(--r);
   padding: 10px 12px; margin-bottom: 8px;
+  align-items: center;
 }
-.cart-item-name { flex: 1; font-size: 13px; font-weight: 500; }
-.cart-item-sub { font-size: 11px; color: var(--txt3); margin-top: 2px; }
+.cart-item-emoji { font-size: 22px; grid-row: 1/3; align-self: center; }
+.cart-item-info  { grid-column: 2; grid-row: 1; min-width: 0; }
+.cart-item-name  { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cart-item-sub   { font-size: 11px; color: var(--txt3); margin-top: 1px; }
+.cart-item-controls { grid-column: 3; grid-row: 1/3; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.cart-item-row2  { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cart-qty {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 4px;
 }
 .qty-btn {
   background: var(--bg4); border: 1px solid var(--bdr2); border-radius: 6px;
@@ -180,10 +188,30 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   transition: all .1s; -webkit-user-select: none; user-select: none;
 }
 .qty-btn:active { transform: scale(.9); }
-.qty-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 14px; min-width: 28px; text-align: center; }
-.cart-item-precio { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; color: var(--grn); min-width: 70px; text-align: right; }
-.cart-remove { color: var(--txt3); background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
+.qty-num { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 14px; min-width: 24px; text-align: center; }
+.cart-precio-input {
+  font-family: 'DM Mono', monospace; font-weight: 700; font-size: 13px;
+  background: var(--bg); border: 1px solid var(--bdr2); border-radius: 6px;
+  color: var(--grn); width: 80px; padding: 4px 6px; text-align: right; outline: none;
+  transition: border-color .15s;
+}
+.cart-precio-input:focus { border-color: var(--acc); color: var(--acc); }
+.cart-precio-input.modificado { border-color: var(--yel); color: var(--yel); }
+.cart-item-total { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; color: var(--grn); white-space: nowrap; }
+.cart-remove { color: var(--txt3); background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px 4px; }
 .cart-remove:hover { color: var(--red); }
+
+/* PC: carrito en una sola fila */
+@media (min-width: 600px) {
+  .cart-item {
+    display: flex; flex-direction: row; align-items: center; gap: 12px;
+  }
+  .cart-item-emoji { grid-row: unset; }
+  .cart-item-info  { flex: 1; min-width: 0; }
+  .cart-item-controls { flex-direction: row; align-items: center; grid-row: unset; }
+  .cart-item-row2  { display: none; }
+  .cart-item-controls-pc { display: flex; align-items: center; gap: 8px; }
+}
 
 /* ── TOTAL Y BOTÓN CONFIRMAR ── */
 .venta-total {
@@ -293,6 +321,24 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .form-row.triple .fgr:first-child { grid-column: 1/-1; }
   .stats-row { grid-template-columns: 1fr 1fr; }
   .page { padding: 12px; }
+}
+
+/* ── MODO PC / PANTALLA GRANDE ── */
+@media (min-width: 900px) {
+  #app { max-width: 900px; margin: 0 auto; min-height: 100vh; box-shadow: 0 0 60px rgba(0,0,0,.5); }
+  .page { padding: 24px 28px; }
+  .stats-row { grid-template-columns: repeat(4, 1fr); }
+  .nav-tabs { padding: 8px 20px; gap: 4px; }
+  .nav-tab { padding: 9px 18px; font-size: 14px; }
+  .header { padding: 14px 24px; }
+  .form-row { gap: 14px; }
+  .venta-form { padding: 22px; }
+  .admin-card { padding: 22px; }
+  html { font-size: 15px; }
+}
+@media (min-width: 600px) and (max-width: 899px) {
+  #app { max-width: 700px; margin: 0 auto; }
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
 }
 </style>
 </head>
@@ -1684,6 +1730,8 @@ function entrarApp(){
   // Actualizar fecha/hora
   actualizarFechaHora();
   setInterval(actualizarFechaHora, 60000);
+  // Re-render carrito al cambiar tamaño (PC ↔ móvil)
+  window.addEventListener('resize', () => { if(carrito.length) renderCarrito(); });
   // Inicializar rango de ventas en mes actual
   setRangoVentas('mes');
   // Listeners para preview en tiempo real
@@ -2108,24 +2156,70 @@ function renderCarrito(){
   document.getElementById('cart-empty').style.display = hayItems ? 'none' : 'block';
   if(!hayItems) return;
 
-  const total = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
-  const nItems = carrito.reduce((s,i) => s+i.cant, 0);
+  const total = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
 
-  document.getElementById('cart-items').innerHTML = carrito.map((item,idx) => `
+  document.getElementById('cart-items').innerHTML = carrito.map((item,idx) => {
+    const precioActual = item.precioCustom ?? item.precio;
+    const subtotal = precioActual * item.cant;
+    const modificado = item.precioCustom !== undefined && item.precioCustom !== item.precio;
+    const cantLabel = item.esPelota ? `${item.cant} bolsa(s) · ${item.cantUds} uds` : `${item.cant} uds`;
+    return `
     <div class="cart-item">
-      <div style="font-size:20px">${item.emoji}</div>
-      <div style="flex:1;min-width:0">
-        <div class="cart-item-name">${item.nombre}</div>
-        <div class="cart-item-sub">Q${item.precio} × ${item.cant} ${item.esPelota?'bolsa(s) ('+item.cantUds+' uds)':'uds'}</div>
+      <div class="cart-item-emoji">${item.emoji}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name" title="${item.nombre}">${item.nombre}</div>
+        <div class="cart-item-sub">${cantLabel}${modificado?' · <span style="color:var(--yel)">precio editado</span>':''}</div>
       </div>
-      <div class="cart-qty">
-        <button class="qty-btn" onclick="cambiarCantCart(${idx},-1)">−</button>
-        <div class="qty-num">${item.cant}</div>
-        <button class="qty-btn" onclick="cambiarCantCart(${idx},1)">+</button>
+      <!-- Fila 2 móvil: qty + precio editable -->
+      <div class="cart-item-row2">
+        <div class="cart-qty">
+          <button class="qty-btn" onclick="cambiarCantCart(${idx},-1)">−</button>
+          <div class="qty-num">${item.cant}</div>
+          <button class="qty-btn" onclick="cambiarCantCart(${idx},1)">+</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:11px;color:var(--txt3)">Q</span>
+          <input type="number" class="cart-precio-input ${modificado?'modificado':''}"
+            value="${precioActual}" min="0" step="0.01"
+            title="Precio unitario — cambialo si hay descuento o precio especial"
+            onchange="cambiarPrecioCart(${idx}, this.value)"
+            onclick="this.select()">
+          <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--grn);font-weight:700">= Q${subtotal.toFixed(2)}</span>
+        </div>
       </div>
-      <div class="cart-item-precio">Q${(item.precio*item.cant).toFixed(2)}</div>
-      <button class="cart-remove" onclick="quitarDelCarrito(${idx})">✕</button>
-    </div>`).join('');
+      <!-- Controles PC (derecha) -->
+      <div class="cart-item-controls">
+        <button class="cart-remove" onclick="quitarDelCarrito(${idx})" title="Quitar">✕</button>
+        <div class="cart-qty" style="display:none" id="pc-qty-${idx}">
+          <button class="qty-btn" onclick="cambiarCantCart(${idx},-1)">−</button>
+          <div class="qty-num">${item.cant}</div>
+          <button class="qty-btn" onclick="cambiarCantCart(${idx},1)">+</button>
+        </div>
+        <div style="display:none;align-items:center;gap:4px" id="pc-precio-${idx}">
+          <span style="font-size:11px;color:var(--txt3)">Q</span>
+          <input type="number" class="cart-precio-input ${modificado?'modificado':''}"
+            value="${precioActual}" min="0" step="0.01"
+            title="Precio unitario editable"
+            onchange="cambiarPrecioCart(${idx}, this.value)"
+            onclick="this.select()">
+        </div>
+        <div class="cart-item-total">Q${subtotal.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // En PC mostrar controles inline
+  if(window.innerWidth >= 600){
+    carrito.forEach((_,idx)=>{
+      const pcQty = document.getElementById(`pc-qty-${idx}`);
+      const pcPrecio = document.getElementById(`pc-precio-${idx}`);
+      if(pcQty) pcQty.style.display='flex';
+      if(pcPrecio) pcPrecio.style.display='flex';
+      // Ocultar fila2 en PC
+      const rows2 = document.querySelectorAll('.cart-item-row2');
+      rows2.forEach(r => r.style.display='none');
+    });
+  }
 
   document.getElementById('venta-total').textContent = `Q${total.toFixed(2)}`;
   document.getElementById('venta-n-items').textContent = `${carrito.length} producto${carrito.length!==1?'s':''}`;
@@ -2146,6 +2240,23 @@ function cambiarCantCart(idx, delta){
   renderCarrito();
 }
 
+function cambiarPrecioCart(idx, valor){
+  const nuevo = parseFloat(valor);
+  if(isNaN(nuevo) || nuevo < 0){ toast('Precio inválido','err'); renderCarrito(); return; }
+  const item = carrito[idx];
+  if(nuevo === item.precio){
+    delete item.precioCustom; // volver al precio original
+  } else {
+    item.precioCustom = nuevo;
+    if(nuevo > item.precio){
+      toast(`💰 Precio aumentado a Q${nuevo.toFixed(2)}`, 'ok');
+    } else {
+      toast(`🏷️ Descuento aplicado — nuevo precio Q${nuevo.toFixed(2)}`, 'warn');
+    }
+  }
+  renderCarrito();
+}
+
 function quitarDelCarrito(idx){
   carrito.splice(idx, 1);
   renderCarrito();
@@ -2161,12 +2272,16 @@ function limpiarCarrito(){
 // ════════════════════════════════════════════════════
 function abrirConfVenta(){
   if(!carrito.length){ toast('El carrito está vacío','err'); return; }
-  const subtotal = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
-  document.getElementById('modal-conf-items').innerHTML = carrito.map(item => `
-    <div class="modal-venta-row">
-      <span>${item.emoji} ${item.nombre} × ${item.cant}${item.esPelota?' bolsa(s) ('+item.cantUds+' uds)':''}</span>
-      <span style="font-family:'DM Mono',monospace;font-weight:600">Q${(item.precio*item.cant).toFixed(2)}</span>
-    </div>`).join('');
+  const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
+  document.getElementById('modal-conf-items').innerHTML = carrito.map(item => {
+    const precioUso = item.precioCustom ?? item.precio;
+    const modificado = item.precioCustom !== undefined && item.precioCustom !== item.precio;
+    const subtItem = precioUso * item.cant;
+    return `<div class="modal-venta-row">
+      <span>${item.emoji} ${item.nombre} × ${item.cant}${item.esPelota?' bol.':''}${modificado?` <span style="font-size:10px;color:var(--yel)">(precio editado: Q${precioUso})</span>`:''}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:600;color:${modificado&&item.precioCustom<item.precio?'var(--yel)':'var(--grn)'}">Q${subtItem.toFixed(2)}</span>
+    </div>`;
+  }).join('');
   document.getElementById('modal-conf-subtotal').textContent = `Q${subtotal.toFixed(2)}`;
   document.getElementById('modal-conf-total').textContent = `Q${subtotal.toFixed(2)}`;
   document.getElementById('conf-descuento').value = '';
@@ -2177,7 +2292,7 @@ function abrirConfVenta(){
 }
 
 function actualizarTotalModal(){
-  const subtotal = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
+  const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
   const descuento = parseFloat(document.getElementById('conf-descuento').value)||0;
   const total = Math.max(0, subtotal - descuento);
   document.getElementById('modal-conf-total').textContent = `Q${total.toFixed(2)}`;
@@ -2197,7 +2312,7 @@ function confirmarVenta(){
   if(descuento > 0 && !motivoDesc){
     toast('Escribí el motivo del descuento','err'); return;
   }
-  const subtotal = carrito.reduce((s,i) => s+i.precio*i.cant, 0);
+  const subtotal = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
   const total = Math.max(0, subtotal - descuento);
   const clienteEl = document.getElementById('conf-cliente');
   const cliente = clienteEl.value.trim() || 'Consumidor Final';
@@ -2219,10 +2334,12 @@ function confirmarVenta(){
       prodId: i.prodId,
       nombre: i.nombre,
       emoji: i.emoji,
-      cant: i.cant,           // bolsas para pelotas, uds para el resto
+      cant: i.cant,
       cantUds: i.cantUds || i.cant,
       esPelota: i.esPelota||false,
-      precio: i.precio,
+      precio: i.precioCustom ?? i.precio,
+      precioOriginal: i.precio,
+      precioModificado: i.precioCustom !== undefined && i.precioCustom !== i.precio,
       subtotal: i.precio * i.cant
     })),
     subtotal,
