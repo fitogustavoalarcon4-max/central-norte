@@ -4563,12 +4563,19 @@ function confirmarPedido(){
   renderStock();
 
   const tipoLabel = _pedidoTipo === 'ingreso' ? '📦 Ingreso' : '🚚 Salida/Traslado';
+  const pedidoGuardado = db.pedidos[db.pedidos.length-1];
   toast(`✅ ${tipoLabel} registrado — ${_pedidoCarrito.reduce((s,i)=>s+i.cant,0)} uds · ${usuario}`);
+
+  // Notificar al Admin por WhatsApp
+  setTimeout(() => {
+    if(confirm(`¿Enviar notificación de ${tipoLabel} al Admin por WhatsApp?`)){
+      notificarStockWhatsApp(pedidoGuardado);
+    }
+  }, 500);
 
   limpiarPedido();
   renderPedidosHist('hoy');
 
-  // Alertar en admin si es salida
   if(_pedidoTipo === 'salida') renderAlertasAdmin();
 }
 
@@ -4603,9 +4610,13 @@ function renderPedidosHist(filtro){
           <div style="font-size:10px;color:var(--txt3)">DPI: ${p.dpi?.slice(0,4)}*****</div>
         </div>
       </div>
-      <div style="font-size:11px;color:var(--txt3)">
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">
         ${p.items.map(i=>`${i.emoji} ${i.nombre}: <b style="color:${color}">${signo}${i.cant}</b>`).join(' · ')}
       </div>
+      <button onclick="notificarStockWhatsApp(db.pedidos.find(x=>x.id==='${p.id}'))"
+        style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#25D366;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+        📲 Notificar Admin WhatsApp
+      </button>
     </div>`;
   }).join('');
 }
@@ -5763,45 +5774,196 @@ function backupVentaAntes(v){
 // ════════════════════════════════════════════════════
 //  FACTURA IMPRIMIBLE POR VENTA
 // ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  WHATSAPP — CONFIGURACIÓN
+// ════════════════════════════════════════════════════
+const WA_ADMIN   = '50234309952';  // Admin — notificaciones de stock
+const WA_ROSMERY = '50241139568';  // Rosmery — copia de todas las facturas
+
+function abrirWhatsApp(numero, mensaje){
+  window.open('https://wa.me/'+numero+'?text='+encodeURIComponent(mensaje),'_blank');
+}
+
+// ── Notificación ingreso/salida de stock al Admin ──
+function notificarStockWhatsApp(pedido){
+  const esIngreso = pedido.tipo === 'ingreso';
+  const icon = esIngreso ? '📦' : '🚚';
+  const tipo = esIngreso ? 'INGRESO DE INVENTARIO' : 'SALIDA / TRASLADO DE INVENTARIO';
+  const itemsTexto = pedido.items.map(i => {
+    const esPelota = db.productos.find(p=>p.id===i.prodId)?.cat === 'pelotas';
+    return '  • ' + i.nombre + ': ' + (esIngreso?'+':'-') + i.cant + (esPelota?' bolsas ('+i.cant*300+' uds)':'');
+  }).join('\n');
+  const msg = icon + ' *ChicleManía — Central Norte*\n'
+    + '*' + tipo + '*\n\n'
+    + '📅 ' + fmtDateTime(pedido.timestamp) + '\n'
+    + '👤 Ejecutado por: *' + pedido.ejecutadoPor + '*\n'
+    + '📝 Motivo: ' + pedido.motivo + '\n\n'
+    + '*Productos:*\n' + itemsTexto + '\n\n'
+    + '📊 Total: *' + pedido.totalUds + ' unidades*\n'
+    + '🔑 DPI: ' + pedido.dpi;
+  abrirWhatsApp(WA_ADMIN, msg);
+}
+
+// ── Texto de factura para WhatsApp ──
+function _textoFacturaWA(v, cli){
+  const ajuste = v.tipoAjusteLabel || (v.descuento && v.descuento > 0 ? 'Descuento Q'+Math.abs(v.descuento).toFixed(2) : '');
+  const itemsTexto = v.items.map(i =>
+    '  • ' + (i.emoji||'') + ' ' + i.nombre + ': ' + i.cant + (i.esPelota?' bolsas':'uds') + ' × Q' + i.precio.toFixed(2) + ' = *Q' + i.subtotal.toFixed(2) + '*'
+  ).join('\n');
+  const nombreCliente = v.cliente||'Consumidor Final';
+  return '🍬 *ChicleManía S.A.*\n'
+    + '🪪 NIT Emisor: *12044610-3*\n'
+    + '🧾 *Comprobante ' + v.id + '*\n\n'
+    + '📅 ' + fmtDateTime(v.timestamp) + '\n'
+    + '👤 Cliente: *' + nombreCliente + '*\n'
+    + '🪪 NIT Cliente: ' + (cli?.nit||v.nit||'CF') + '\n'
+    + '👩‍💼 Atendido por: Rosmery Archila\n\n'
+    + '*Detalle:*\n' + itemsTexto
+    + (ajuste ? '\n\n🏷️ ' + ajuste : '') + '\n'
+    + '──────────────────\n'
+    + '💰 *TOTAL: Q' + v.total.toFixed(2) + '*\n\n'
+    + 'Gracias por su compra 🙏\n_ChicleManía S.A. · NIT 12044610-3_';
+}
+
 function generarFacturaVenta(ventaId){
   const v = db.ventas?.find(x=>x.id===ventaId); if(!v) return;
   _imprimirFactura(v);
 }
 function generarFacturaCliente(clienteId){
-  // Última venta del cliente
   const ventas = (db.ventas||[]).filter(v=>v.clienteId===clienteId&&!v.anulada);
   if(!ventas.length){ toast('Este cliente no tiene ventas registradas','err'); return; }
   _imprimirFactura(ventas[ventas.length-1]);
 }
 function _imprimirFactura(v){
   const cli = v.clienteId ? db.clientes?.find(x=>x.id===v.clienteId) : null;
-  const rows = v.items.map(i=>`<tr>
-    <td style="padding:6px 8px;font-size:11px">${i.emoji} ${i.nombre}</td>
-    <td style="padding:6px 8px;font-size:11px;text-align:center">${i.cant}${i.esPelota?' bolsas':''}</td>
-    <td style="padding:6px 8px;font-size:11px;text-align:right">Q${i.precio.toFixed(2)}</td>
-    <td style="padding:6px 8px;font-size:11px;text-align:right;font-weight:700">Q${i.subtotal.toFixed(2)}</td>
-  </tr>`).join('');
-  const w=window.open('','_blank','width=600,height=700');
-  w.document.write(`<!DOCTYPE html><html><head><title>Factura ${v.id}</title>
-  <style>body{font-family:Arial,sans-serif;padding:24px;max-width:480px;margin:0 auto}.header{text-align:center;border-bottom:2px solid #f97316;padding-bottom:12px;margin-bottom:16px}.logo{font-size:36px}.empresa{font-size:18px;font-weight:800;color:#f97316}.sub{font-size:12px;color:#888}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:7px 8px;font-size:11px;text-align:left}tr:nth-child(even){background:#fafafa}.total-row{border-top:2px solid #f97316;font-weight:700;font-size:13px}.footer{text-align:center;margin-top:16px;font-size:10px;color:#aaa}@media print{.np{display:none}}</style>
-  </head><body>
-  <div class="header"><div class="logo">🍬</div><div class="empresa">ChicleManía</div><div class="sub">Central Norte · ${new Date().toLocaleString('es-GT')}</div></div>
-  <div style="font-size:12px;margin-bottom:12px">
-    <div><b>Factura:</b> ${v.id}</div>
-    <div><b>Fecha:</b> ${fmtDateTime(v.timestamp)}</div>
-    <div><b>Cliente:</b> ${v.cliente||'Consumidor Final'}</div>
-    <div><b>NIT:</b> ${cli?.nit||v.nit||'CF'}</div>
-    ${cli?.telefono?`<div><b>Tel:</b> ${cli.telefono}</div>`:''}
-    <div><b>Atendido por:</b> ${v.vendedor==='admin'?'Admin':'Rosmery Archila'}</div>
-  </div>
-  <table><thead><tr><th>Producto</th><th style="text-align:center">Cant.</th><th style="text-align:right">Precio</th><th style="text-align:right">Subtotal</th></tr></thead>
-  <tbody>${rows}
-    ${v.descuento?`<tr><td colspan="3" style="padding:6px 8px;font-size:11px;text-align:right;color:#d97706">Descuento (${v.motivoDescuento||''})</td><td style="padding:6px 8px;font-size:11px;text-align:right;color:#d97706">-Q${v.descuento.toFixed(2)}</td></tr>`:''}
-    <tr class="total-row"><td colspan="3" style="padding:8px;text-align:right">TOTAL</td><td style="padding:8px;text-align:right;color:#f97316;font-size:14px">Q${v.total.toFixed(2)}</td></tr>
-  </tbody></table>
-  <div class="footer">Gracias por su compra · ChicleManía Central Norte<br>chiclemania.com</div>
-  <div class="np" style="margin-top:16px;text-align:center"><button onclick="window.print()" style="padding:10px 24px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / PDF</button></div>
-  </body></html>`);
+  const telCliente = cli?.telefono || v.telefono || '';
+  const nitCliente = cli?.nit || v.nit || 'CF';
+  const ajuste = v.tipoAjusteLabel || '';
+  const textoWA = _textoFacturaWA(v, cli);
+  const nombreCliente = v.cliente || 'Consumidor Final';
+
+  // Nombre sugerido para el PDF — incluye cliente, total y fecha
+  const fechaCorta = hoy().replace(/-/g,'');
+  const nombreLimpio = nombreCliente.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g,'').trim().replace(/\s+/g,'_');
+  const nombreArchivo = `Factura_${nombreLimpio}_Q${v.total.toFixed(0)}_${fechaCorta}`;
+
+  // Limpiar número cliente
+  const telLimpio = telCliente.replace(/\D/g,'');
+  const telWA = telLimpio.length >= 8 ? (telLimpio.startsWith('502')?telLimpio:'502'+telLimpio) : '';
+  const waClienteURL = telWA ? 'https://wa.me/'+telWA+'?text='+encodeURIComponent(textoWA) : '';
+  const waRosmeryURL = 'https://wa.me/'+WA_ROSMERY+'?text='+encodeURIComponent(textoWA);
+
+  const rows = v.items.map(i=>'<tr>'
+    +'<td style="padding:6px 8px;font-size:11px">'+(i.emoji||'')+' '+i.nombre+'</td>'
+    +'<td style="padding:6px 8px;font-size:11px;text-align:center">'+i.cant+(i.esPelota?' bolsas':'')+'</td>'
+    +'<td style="padding:6px 8px;font-size:11px;text-align:right">Q'+i.precio.toFixed(2)+'</td>'
+    +'<td style="padding:6px 8px;font-size:11px;text-align:right;font-weight:700">Q'+i.subtotal.toFixed(2)+'</td>'
+    +'</tr>').join('');
+
+  const w = window.open('','_blank','width=640,height=860');
+  w.document.write('<!DOCTYPE html><html><head>'
+    // Título = nombre del cliente para que el PDF se guarde con ese nombre
+    +'<title>'+nombreArchivo+'</title>'
+    +'<style>'
+    +'body{font-family:Arial,sans-serif;padding:24px;max-width:500px;margin:0 auto}'
+    +'.header{border-bottom:2px solid #f97316;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}'
+    +'.header-left{text-align:left}'
+    +'.empresa{font-size:17px;font-weight:800;color:#f97316;margin-bottom:2px}'
+    +'.emisor-dato{font-size:10px;color:#888;line-height:1.5}'
+    +'.header-right{text-align:right}'
+    +'.doc-titulo{font-size:15px;font-weight:800;color:#111}'
+    +'.doc-num{font-size:11px;color:#f97316;font-family:monospace;margin-top:2px}'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px}'
+    +'th{background:#f97316;color:#fff;padding:7px 8px;font-size:10px;text-align:left}'
+    +'tr:nth-child(even){background:#fafafa}'
+    +'.total-row{border-top:2px solid #f97316;font-weight:700}'
+    +'.receptor{background:#fff8f0;border:1px solid #fed7aa;border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px}'
+    +'.footer{text-align:center;margin-top:16px;font-size:10px;color:#aaa}'
+    +'.nota-sat{background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:8px 10px;font-size:10px;color:#854d0e;margin-top:10px}'
+    +'.wa-section{margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px}'
+    +'.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:#25D366;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;text-decoration:none;margin:3px}'
+    +'.filename-tip{background:#f0f4ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 10px;font-size:10px;color:#1e40af;margin-top:8px}'
+    +'@media print{.np{display:none}}'
+    +'</style>'
+    +'</head><body>'
+
+    // ENCABEZADO con datos del emisor
+    +'<div class="header">'
+      +'<div class="header-left">'
+        +'<div style="font-size:28px">🍬</div>'
+        +'<div class="empresa">ChicleManía S.A.</div>'
+        +'<div class="emisor-dato">'
+          +'<b>NIT Emisor:</b> 12044610-3<br>'
+          +'Central Norte<br>'
+          +'Guatemala, Guatemala'
+        +'</div>'
+      +'</div>'
+      +'<div class="header-right">'
+        +'<div class="doc-titulo">COMPROBANTE DE VENTA</div>'
+        +'<div class="doc-num"># '+v.id+'</div>'
+        +'<div style="font-size:10px;color:#888;margin-top:4px">'+fmtFecha(v.timestamp)+'</div>'
+        +'<div style="font-size:10px;color:#f97316;font-weight:700">'+fmtHora(v.timestamp)+'</div>'
+      +'</div>'
+    +'</div>'
+
+    // DATOS DEL RECEPTOR (cliente)
+    +'<div class="receptor">'
+      +'<div style="font-weight:700;margin-bottom:4px;font-size:12px">📋 Datos del cliente</div>'
+      +'<div><b>Nombre:</b> '+nombreCliente+'</div>'
+      +'<div><b>NIT:</b> '+nitCliente+'</div>'
+      +(telCliente?'<div><b>Teléfono:</b> '+telCliente+'</div>':'')
+      +'<div style="margin-top:4px;color:#888"><b>Atendido por:</b> Rosmery Archila</div>'
+    +'</div>'
+
+    // TABLA DE PRODUCTOS
+    +'<table>'
+      +'<thead><tr>'
+        +'<th>Producto</th>'
+        +'<th style="text-align:center">Cant.</th>'
+        +'<th style="text-align:right">Precio unit.</th>'
+        +'<th style="text-align:right">Subtotal</th>'
+      +'</tr></thead>'
+      +'<tbody>'+rows
+      +(v.descuento&&v.descuento>0
+        ?'<tr><td colspan="3" style="padding:6px 8px;font-size:11px;text-align:right;color:#d97706">'+(ajuste||'Descuento / Ajuste')+'</td>'
+          +'<td style="padding:6px 8px;font-size:11px;text-align:right;color:#d97706">-Q'+Math.abs(v.descuento).toFixed(2)+'</td></tr>'
+        :'')
+      +(v.motivoDescuento?'<tr><td colspan="4" style="padding:3px 8px;font-size:10px;color:#888;font-style:italic">Motivo: '+v.motivoDescuento+'</td></tr>':'')
+      +'<tr class="total-row">'
+        +'<td colspan="3" style="padding:10px 8px;text-align:right;font-size:13px">TOTAL A PAGAR</td>'
+        +'<td style="padding:10px 8px;text-align:right;color:#f97316;font-size:17px;font-weight:800">Q'+v.total.toFixed(2)+'</td>'
+      +'</tr>'
+      +'</tbody>'
+    +'</table>'
+
+    +'<div class="footer">Gracias por su compra · ChicleManía S.A. · NIT 12044610-3</div>'
+
+    // Nota aclaratoria SAT
+    +'<div class="nota-sat np">⚠️ Este documento es un <b>comprobante de venta interno</b>. '
+      +'No sustituye la Factura Electrónica en Línea (FEL) autorizada por SAT Guatemala.</div>'
+
+    // WHATSAPP
+    +'<div class="wa-section np">'
+      +'<div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:8px">📲 Enviar por WhatsApp</div>'
+      +'<a class="wa-btn" href="'+waRosmeryURL+'" target="_blank">📋 Copia a Rosmery</a>'
+      +(waClienteURL?'<a class="wa-btn" href="'+waClienteURL+'" target="_blank">👤 Enviar al cliente</a>':'<span style="font-size:11px;color:#888;margin-left:8px">Cliente sin número registrado</span>')
+      +'<div style="font-size:10px;color:#888;margin-top:6px">Se abre WhatsApp con el mensaje listo — solo tocá Enviar</div>'
+    +'</div>'
+
+    // TIP nombre archivo PDF
+    +'<div class="filename-tip np">'
+      +'💡 <b>Al imprimir como PDF</b>, el archivo se llamará:<br>'
+      +'<code style="font-size:11px">'+nombreArchivo+'.pdf</code>'
+    +'</div>'
+
+    +'<div class="np" style="margin-top:14px;text-align:center">'
+      +'<button onclick="document.title=\''+nombreArchivo+'\';window.print()" '
+        +'style="padding:10px 24px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">'
+        +'🖨️ Guardar PDF / Imprimir'
+      +'</button>'
+    +'</div>'
+
+    +'</body></html>');
   w.document.close();
 }
 
