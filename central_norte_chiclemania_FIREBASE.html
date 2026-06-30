@@ -1273,6 +1273,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <div class="modal-box" style="max-width:420px">
     <div class="modal-title" id="modal-cli-title">👤 Nuevo cliente</div>
     <input type="hidden" id="cli-edit-id">
+    <input type="hidden" id="cli-edit-nombre-original">
     <div class="form-row">
       <div class="fgr">
         <label>Nombre completo <span style="color:var(--red)">*</span></label>
@@ -1892,7 +1893,7 @@ function entrarApp(){
   if(!db.clientes) db.clientes=[];
   if(!db.cierresCaja) db.cierresCaja=[];
   if(!db.pedidosSugeridos) db.pedidosSugeridos=[];
-  migrarVentasAClientes();
+  // Clientes se calculan al vuelo desde el historial de ventas — sin migración ni duplicados
   renderAudHistorial();
   actualizarMetaWidget();
   setTimeout(verificarAlertaPedidoSemanal, 2000);
@@ -2649,33 +2650,6 @@ function confirmarVenta(){
   const numAuth = document.getElementById('conf-num-auth')?.value.trim() || '';
   const numTransf = document.getElementById('conf-num-transf')?.value.trim() || '';
 
-  // Vincular o crear cliente automáticamente (excepto "Consumidor Final" genérico)
-  let clienteId = clienteEl.dataset.clienteId || null;
-  if(!clienteId && cliente && cliente.toLowerCase() !== 'consumidor final'){
-    if(!db.clientes) db.clientes = [];
-    // Buscar coincidencia exacta por nombre (case-insensitive) o por teléfono
-    let clienteExistente = db.clientes.find(c =>
-      c.nombre.trim().toLowerCase() === cliente.trim().toLowerCase() ||
-      (telefono && c.telefono && c.telefono.replace(/\D/g,'') === telefono.replace(/\D/g,''))
-    );
-    if(clienteExistente){
-      clienteId = clienteExistente.id;
-      // Actualizar datos si vinieron más completos
-      if(telefono && !clienteExistente.telefono) clienteExistente.telefono = telefono;
-      if(nit && nit!=='CF' && (!clienteExistente.nit || clienteExistente.nit==='CF')) clienteExistente.nit = nit;
-    } else {
-      // Crear cliente nuevo automáticamente
-      const nuevoCliente = {
-        id: 'CLI-'+Date.now(),
-        nombre: cliente, telefono, nit: nit||'CF',
-        direccion: '', notas: '',
-        creadoEn: ahora(), creadoAuto: true,
-      };
-      db.clientes.push(nuevoCliente);
-      clienteId = nuevoCliente.id;
-    }
-  }
-
   if(metodoPago === 'tarjeta' && !numAuth){
     toast('Ingresá el número de autorización del voucher','err'); return;
   }
@@ -2688,7 +2662,6 @@ function confirmarVenta(){
     fecha: hoy(),
     vendedor: _rolActual,
     cliente,
-    clienteId,
     nit,
     telefono,
     descuento,
@@ -5483,68 +5456,79 @@ function normalizarTelefono(s){
   return (s||'').toString().replace(/\D/g,'');
 }
 
-function migrarVentasAClientes(){
-  if(!db.ventas?.length) return;
-  if(!db.clientes) db.clientes = [];
-  let creados = 0, vinculados = 0;
+function normalizarTexto(s){
+  return (s||'').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // quita acentos
+}
+function normalizarTelefono(s){
+  return (s||'').toString().replace(/\D/g,'');
+}
 
-  db.ventas.forEach(v => {
-    // Ya tiene clienteId — nada que hacer
-    if(v.clienteId) return;
-    // "Consumidor Final" genérico no se convierte en cliente
-    const nombreNorm = normalizarTexto(v.cliente);
-    if(!nombreNorm || nombreNorm === 'consumidor final') return;
+// ════════════════════════════════════════════════════
+//  CLIENTES — calculados al vuelo desde el historial de ventas
+//  (no se guardan duplicados; se agrupan por nombre normalizado)
+// ════════════════════════════════════════════════════
+function obtenerClientesDesdeVentas(){
+  const ventas = (db.ventas||[]).filter(v => !v.anulada);
+  const grupos = {}; // key = nombre normalizado
 
-    const telNorm = normalizarTelefono(v.telefono);
-    const nitNorm = normalizarTexto(v.nit);
+  ventas.forEach(v => {
+    const nombreOriginal = (v.cliente||'').trim();
+    const nombreNorm = normalizarTexto(nombreOriginal);
+    if(!nombreNorm || nombreNorm === 'consumidor final') return; // CF no se agrupa como cliente
 
-    // Buscar cliente existente por: mismo nombre, O mismo teléfono (si ambos tienen tel), O mismo NIT (si no es CF)
-    let match = db.clientes.find(c => {
-      const cNombreNorm = normalizarTexto(c.nombre);
-      const cTelNorm = normalizarTelefono(c.telefono);
-      const cNitNorm = normalizarTexto(c.nit);
-
-      const mismoNombre = cNombreNorm === nombreNorm;
-      const mismoTelefono = telNorm && cTelNorm && telNorm === cTelNorm;
-      const mismoNit = nitNorm && nitNorm !== 'cf' && cNitNorm === nitNorm;
-
-      // Confirmación: nombre igual ES el criterio principal.
-      // Si además coincide teléfono o NIT, más seguro aún — pero el nombre solo ya alcanza.
-      return mismoNombre || mismoTelefono || mismoNit;
-    });
-
-    if(match){
-      v.clienteId = match.id;
-      // Completar datos si la venta trae algo que el cliente no tiene
-      if(v.telefono && !match.telefono) match.telefono = v.telefono;
-      if(v.nit && v.nit !== 'CF' && (!match.nit || match.nit === 'CF')) match.nit = v.nit;
-      vinculados++;
-    } else {
-      // Crear cliente nuevo a partir de esta venta histórica
-      const nuevoCliente = {
-        id: 'CLI-MIG-' + Date.now() + '-' + Math.floor(Math.random()*10000),
-        nombre: v.cliente,
-        telefono: v.telefono || '',
-        nit: v.nit && v.nit !== 'CF' ? v.nit : 'CF',
-        direccion: '', notas: '',
-        creadoEn: v.timestamp, creadoAuto: true, migrado: true,
+    if(!grupos[nombreNorm]){
+      grupos[nombreNorm] = {
+        id: 'CLI-' + nombreNorm.replace(/\s+/g,'-'),
+        nombre: nombreOriginal,
+        telefono: '',
+        nit: '',
+        ventas: [],
       };
-      db.clientes.push(nuevoCliente);
-      v.clienteId = nuevoCliente.id;
-      creados++;
+    }
+    const g = grupos[nombreNorm];
+    g.ventas.push(v);
+    // Completar teléfono/NIT con el dato más reciente que tenga info real
+    if(v.telefono && (!g.telefono)) g.telefono = v.telefono;
+    if(v.nit && v.nit !== 'CF' && !g.nit) g.nit = v.nit;
+    // Si encontramos un nombre con mejor capitalización (no todo minúsculas), usarlo
+    if(nombreOriginal !== nombreOriginal.toLowerCase() && g.nombre === g.nombre.toLowerCase()){
+      g.nombre = nombreOriginal;
     }
   });
 
-  if(creados > 0 || vinculados > 0){
-    saveDB();
-    console.log(`✅ Migración de clientes: ${creados} creados, ${vinculados} vinculados`);
-  }
+  // Mezclar con datos guardados manualmente en db.clientes (dirección, notas, ediciones)
+  (db.clientes||[]).forEach(cManual => {
+    const key = normalizarTexto(cManual.nombre);
+    if(grupos[key]){
+      grupos[key].direccion = cManual.direccion || '';
+      grupos[key].notas = cManual.notas || '';
+      if(cManual.telefono) grupos[key].telefono = cManual.telefono;
+      if(cManual.nit && cManual.nit !== 'CF') grupos[key].nit = cManual.nit;
+      grupos[key].idManual = cManual.id; // para poder editar
+    }
+  });
+
+  return Object.values(grupos).map(g => {
+    const total = g.ventas.reduce((s,v)=>s+v.total,0);
+    const ticketProm = g.ventas.length ? total / g.ventas.length : 0;
+    const fechasUnicas = [...new Set(g.ventas.map(v=>v.fecha))].sort();
+    const ultimaVenta = g.ventas.reduce((a,b)=> a.timestamp > b.timestamp ? a : b, g.ventas[0]);
+    return {
+      ...g,
+      totalCompras: total,
+      nTransacciones: g.ventas.length,
+      ticketPromedio: ticketProm,
+      fechasUnicas,
+      ultimaVenta,
+    };
+  });
 }
 
 function renderClientes(){
-  if(!db.clientes) db.clientes = [];
   const q = (document.getElementById('cli-search')?.value||'').toLowerCase().trim();
-  let lista = db.clientes;
+  let lista = obtenerClientesDesdeVentas();
+
   if(q) lista = lista.filter(c =>
     c.nombre.toLowerCase().includes(q) ||
     (c.telefono||'').includes(q) ||
@@ -5553,79 +5537,119 @@ function renderClientes(){
 
   const el = document.getElementById('clientes-list');
   if(!el) return;
+
   if(!lista.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-msg">'+( q ? 'Sin resultados' : 'No hay clientes registrados aún')+'</div></div>';
+    const msg = q ? 'Sin resultados para "'+q+'"' : 'Aún no hay ventas con nombre de cliente registradas';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udc65</div><div class="empty-msg">'+msg+'</div></div>';
     return;
   }
 
-  // Ordenar: clientes con más compras primero, luego por más reciente
-  el.innerHTML = lista.map(c => {
-    const ventasCli = (db.ventas||[]).filter(v => v.clienteId === c.id && !v.anulada);
-    return { c, ventasCli };
-  }).sort((a,b) => {
-    if(b.ventasCli.length !== a.ventasCli.length) return b.ventasCli.length - a.ventasCli.length;
-    const ua = a.ventasCli.length ? a.ventasCli[a.ventasCli.length-1].timestamp : '';
-    const ub = b.ventasCli.length ? b.ventasCli[b.ventasCli.length-1].timestamp : '';
-    return ub.localeCompare(ua);
-  }).map(({c, ventasCli}) => {
-    const totalCompras = ventasCli.reduce((s,v)=>s+v.total,0);
-    const ultimaCompra = ventasCli.length ? ventasCli[ventasCli.length-1] : null;
+  // Ordenar: más transacciones primero, luego más reciente
+  lista.sort((a,b) => {
+    if(b.nTransacciones !== a.nTransacciones) return b.nTransacciones - a.nTransacciones;
+    return (b.ultimaVenta?.timestamp||'').localeCompare(a.ultimaVenta?.timestamp||'');
+  });
 
-    // Detectar fechas únicas de compra para ver si es cliente recurrente
-    const fechasUnicas = [...new Set(ventasCli.map(v=>v.fecha))].sort();
-    const esRecurrente = fechasUnicas.length >= 2;
+  el.innerHTML = lista.map(c => {
+    const esRecurrente = c.fechasUnicas.length >= 2;
     let rachaTexto = '';
-    if(fechasUnicas.length >= 2){
-      // Verificar si hay días consecutivos
+    if(c.fechasUnicas.length >= 2){
       let maxRacha = 1, rachaActual = 1;
-      for(let i=1;i<fechasUnicas.length;i++){
-        const d1 = new Date(fechasUnicas[i-1]);
-        const d2 = new Date(fechasUnicas[i]);
+      for(let i=1;i<c.fechasUnicas.length;i++){
+        const d1 = new Date(c.fechasUnicas[i-1]);
+        const d2 = new Date(c.fechasUnicas[i]);
         const diffDias = Math.round((d2-d1)/(1000*60*60*24));
         if(diffDias===1){ rachaActual++; maxRacha=Math.max(maxRacha,rachaActual); }
         else rachaActual=1;
       }
-      if(maxRacha >= 2) rachaTexto = '🔥 '+maxRacha+' días seguidos';
+      if(maxRacha >= 2) rachaTexto = '\ud83d\udd25 '+maxRacha+' días seguidos';
     }
 
-    return `<div class="admin-card" style="margin-bottom:10px;${esRecurrente?'border-color:rgba(249,115,22,.25)':''}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px">
-            👤 ${c.nombre}
-            ${esRecurrente?'<span style="font-size:9px;background:rgba(249,115,22,.18);color:var(--acc);padding:2px 7px;border-radius:99px;font-weight:700">CLIENTE FRECUENTE</span>':''}
-          </div>
-          <div style="font-size:11px;color:var(--txt3);margin-top:3px">
-            ${c.telefono?`📱 ${c.telefono} · `:''}NIT: <b>${c.nit||'CF'}</b>${c.direccion?' · 📍 '+c.direccion:''}
-          </div>
-          ${c.notas?`<div style="font-size:11px;color:var(--txt2);margin-top:2px">💬 ${c.notas}</div>`:''}
-          <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-            <div style="font-size:11px"><span style="color:var(--txt3)">Compras:</span> <b style="color:var(--grn)">Q${totalCompras.toFixed(2)}</b></div>
-            <div style="font-size:11px"><span style="color:var(--txt3)">Transacciones:</span> <b>${ventasCli.length}</b></div>
-            <div style="font-size:11px"><span style="color:var(--txt3)">Días distintos:</span> <b>${fechasUnicas.length}</b></div>
-            ${ultimaCompra?`<div style="font-size:11px"><span style="color:var(--txt3)">Última:</span> <b>${fmtFecha(ultimaCompra.timestamp)}</b></div>`:''}
-            ${rachaTexto?`<div style="font-size:11px;color:var(--acc);font-weight:600">${rachaTexto}</div>`:''}
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-          <button class="btn btn-sec btn-sm" onclick="verHistorialCliente('${c.id}')">📋 Ver historial</button>
-          <button class="btn btn-sec btn-sm" onclick="abrirModalCliente('${c.id}')">✏️ Editar</button>
-          <button class="btn btn-success btn-sm" onclick="generarFacturaCliente('${c.id}')">🧾 Factura</button>
-        </div>
-      </div>
-    </div>`;
+    return '<div class="admin-card" style="margin-bottom:10px;'+(esRecurrente?'border-color:rgba(249,115,22,.25)':'')+'">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+            + '\ud83d\udc64 '+c.nombre
+            + (esRecurrente?'<span style="font-size:9px;background:rgba(249,115,22,.18);color:var(--acc);padding:2px 7px;border-radius:99px;font-weight:700">CLIENTE FRECUENTE</span>':'')
+          + '</div>'
+          + '<div style="font-size:11px;color:var(--txt3);margin-top:3px">'
+            + (c.telefono?'\ud83d\udcf1 '+c.telefono+' · ':'')+'NIT: <b>'+(c.nit||'CF')+'</b>'+(c.direccion?' · \ud83d\udccd '+c.direccion:'')
+          + '</div>'
+          + (c.notas?'<div style="font-size:11px;color:var(--txt2);margin-top:2px">\ud83d\udcac '+c.notas+'</div>':'')
+          + '<div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">'
+            + '<div style="font-size:11px"><span style="color:var(--txt3)">Total comprado:</span> <b style="color:var(--grn)">Q'+c.totalCompras.toFixed(2)+'</b></div>'
+            + '<div style="font-size:11px"><span style="color:var(--txt3)">Transacciones:</span> <b>'+c.nTransacciones+'</b></div>'
+            + '<div style="font-size:11px"><span style="color:var(--txt3)">Ticket promedio:</span> <b style="color:var(--acc)">Q'+c.ticketPromedio.toFixed(2)+'</b></div>'
+            + '<div style="font-size:11px"><span style="color:var(--txt3)">Días distintos:</span> <b>'+c.fechasUnicas.length+'</b></div>'
+            + (c.ultimaVenta?'<div style="font-size:11px"><span style="color:var(--txt3)">Última:</span> <b>'+fmtFecha(c.ultimaVenta.timestamp)+'</b></div>':'')
+            + (rachaTexto?'<div style="font-size:11px;color:var(--acc);font-weight:600">'+rachaTexto+'</div>':'')
+          + '</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">'
+          + '<button class="btn btn-sec btn-sm" onclick="verHistorialClientePorNombre(\''+c.nombre.replace(/'/g,"\\'")+'\')">\ud83d\udccb Ver historial</button>'
+          + '<button class="btn btn-sec btn-sm" onclick="abrirModalClientePorNombre(\''+c.nombre.replace(/'/g,"\\'")+'\')">\u270f\ufe0f Editar datos</button>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
   }).join('');
 }
 
+// Ver historial de un cliente agrupado por nombre (no requiere clienteId guardado)
+function verHistorialClientePorNombre(nombre){
+  const nombreNorm = normalizarTexto(nombre);
+  const ventas = (db.ventas||[]).filter(v => normalizarTexto(v.cliente) === nombreNorm && !v.anulada);
+  if(!ventas.length){ toast('Sin compras registradas para este cliente','err'); return; }
+  const total = ventas.reduce((s,v)=>s+v.total,0);
+  const rows = ventas.slice().reverse().map(v=>'<tr>'
+    +'<td style="padding:5px 8px;font-size:11px">'+fmtDateTime(v.timestamp)+'</td>'
+    +'<td style="padding:5px 8px;font-size:11px">'+v.items.map(i=>i.cant+'× '+i.nombre.substring(0,20)).join(', ')+'</td>'
+    +'<td style="padding:5px 8px;font-size:11px;font-weight:700;text-align:right;color:#16a34a">Q'+v.total.toFixed(2)+'</td></tr>').join('');
+  const w = window.open('','_blank','width=700,height=600');
+  w.document.write('<!DOCTYPE html><html><head><title>Historial '+nombre+'</title>'
+    +'<style>body{font-family:Arial,sans-serif;padding:20px}h2{color:#f97316}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:11px}tr:nth-child(even){background:#f9f9f9}.np{margin-top:16px}@media print{.np{display:none}}</style>'
+    +'</head><body>'
+    +'<h2>\ud83c\udf6c ChicleManía — Central Norte</h2>'
+    +'<h3>Historial de Cliente: '+nombre+'</h3>'
+    +'<p style="font-size:12px;font-weight:700;color:#f97316">Total acumulado: Q'+total.toFixed(2)+' en '+ventas.length+' transacciones · Ticket promedio: Q'+(total/ventas.length).toFixed(2)+'</p>'
+    +'<table><thead><tr><th>Fecha/Hora</th><th>Productos</th><th>Total Q</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +'<div class="np"><button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer">\ud83d\udda8\ufe0f Imprimir / PDF</button></div>'
+    +'</body></html>');
+  w.document.close();
+}
+
+// Editar datos extra (dirección, notas) de un cliente agrupado por nombre
+function abrirModalClientePorNombre(nombre){
+  const nombreNorm = normalizarTexto(nombre);
+  if(!db.clientes) db.clientes = [];
+  let cManual = db.clientes.find(c => normalizarTexto(c.nombre) === nombreNorm);
+
+  // Tomar teléfono/NIT más reciente de las ventas si no existe registro manual
+  const ventas = (db.ventas||[]).filter(v => normalizarTexto(v.cliente) === nombreNorm);
+  const telVenta = ventas.find(v=>v.telefono)?.telefono || '';
+  const nitVenta = ventas.find(v=>v.nit && v.nit!=='CF')?.nit || '';
+
+  document.getElementById('modal-cli-title').textContent = '\u270f\ufe0f Editar: ' + nombre;
+  document.getElementById('cli-edit-id').value = cManual?.id || '';
+  document.getElementById('cli-edit-nombre-original').value = nombre;
+  document.getElementById('cli-nombre').value = cManual?.nombre || nombre;
+  document.getElementById('cli-telefono').value = cManual?.telefono || telVenta;
+  document.getElementById('cli-nit').value = cManual?.nit || nitVenta || 'CF';
+  document.getElementById('cli-direccion').value = cManual?.direccion || '';
+  document.getElementById('cli-notas').value = cManual?.notas || '';
+  abrirModal('modal-cliente');
+}
+
 function abrirModalCliente(id){
-  const c = id ? db.clientes?.find(x=>x.id===id) : null;
-  document.getElementById('modal-cli-title').textContent = c ? '✏️ Editar cliente' : '👤 Nuevo cliente';
-  document.getElementById('cli-edit-id').value = c?.id || '';
-  document.getElementById('cli-nombre').value = c?.nombre || '';
-  document.getElementById('cli-telefono').value = c?.telefono || '';
-  document.getElementById('cli-nit').value = c?.nit || '';
-  document.getElementById('cli-direccion').value = c?.direccion || '';
-  document.getElementById('cli-notas').value = c?.notas || '';
+  // Para "Nuevo cliente" desde el botón (sin venta asociada todavía)
+  document.getElementById('modal-cli-title').textContent = '👤 Nuevo cliente';
+  document.getElementById('cli-edit-id').value = '';
+  document.getElementById('cli-edit-nombre-original').value = '';
+  document.getElementById('cli-nombre').value = '';
+  document.getElementById('cli-telefono').value = '';
+  document.getElementById('cli-nit').value = '';
+  document.getElementById('cli-direccion').value = '';
+  document.getElementById('cli-notas').value = '';
   abrirModal('modal-cliente');
 }
 
@@ -5633,7 +5657,9 @@ function guardarCliente(){
   const nombre = document.getElementById('cli-nombre').value.trim();
   if(!nombre){ toast('El nombre es obligatorio','err'); return; }
   if(!db.clientes) db.clientes = [];
+
   const editId = document.getElementById('cli-edit-id').value;
+  const nombreOriginal = document.getElementById('cli-edit-nombre-original').value;
   const datos = {
     nombre,
     telefono: document.getElementById('cli-telefono').value.trim(),
@@ -5641,12 +5667,25 @@ function guardarCliente(){
     direccion: document.getElementById('cli-direccion').value.trim(),
     notas: document.getElementById('cli-notas').value.trim(),
   };
+
   if(editId){
+    // Cliente manual existente — actualizar
     const c = db.clientes.find(x=>x.id===editId);
     if(c) Object.assign(c, datos);
+  } else if(nombreOriginal){
+    // Editando un cliente calculado desde ventas (sin registro manual aún) — crear registro manual
+    const nombreNorm = normalizarTexto(nombreOriginal);
+    let cManual = db.clientes.find(c => normalizarTexto(c.nombre) === nombreNorm);
+    if(cManual){
+      Object.assign(cManual, datos);
+    } else {
+      db.clientes.push({ id:'CLI-'+Date.now(), creadoEn:ahora(), ...datos });
+    }
   } else {
+    // Cliente totalmente nuevo (botón "Nuevo cliente")
     db.clientes.push({ id:'CLI-'+Date.now(), creadoEn:ahora(), ...datos });
   }
+
   saveDB();
   cerrarModal('modal-cliente');
   renderClientes();
@@ -5678,53 +5717,53 @@ function verHistorialCliente(id){
 
 function filtrarClientesModal(q){
   const wrap = document.getElementById('conf-cli-results');
-  if(!q.trim() || !db.clientes?.length){ wrap.style.display='none'; return; }
+  if(!q.trim()){ wrap.style.display='none'; return; }
   const t = q.toLowerCase().trim();
-  const res = (db.clientes||[]).filter(c =>
+  const todos = obtenerClientesDesdeVentas();
+  const res = todos.filter(c =>
     c.nombre.toLowerCase().includes(t) ||
     (c.telefono||'').includes(t) ||
     (c.nit||'').toLowerCase().includes(t)
   ).slice(0,8);
   if(!res.length){
-    wrap.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--txt3)">Sin resultados — se guardará como cliente nuevo</div>`;
+    wrap.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--txt3)">Cliente nuevo — se registrará con estos datos</div>`;
     wrap.style.display='block';
     return;
   }
   wrap.innerHTML = res.map(c=>{
-    const ventasCli = (db.ventas||[]).filter(v=>v.clienteId===c.id&&!v.anulada);
-    const totalCli = ventasCli.reduce((s,v)=>s+v.total,0);
-    return `<div onmousedown="seleccionarClienteModal('${c.id}')"
+    return `<div onmousedown="seleccionarClienteModal('${c.nombre.replace(/'/g,"\\'")}')"
       style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bdr);font-size:13px"
       onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
       <b>${c.nombre}</b> <span style="color:var(--txt3);font-size:11px">· NIT: ${c.nit||'CF'}${c.telefono?' · 📱'+c.telefono:''}</span>
-      ${ventasCli.length?`<div style="font-size:10px;color:var(--grn);margin-top:2px">${ventasCli.length} compras · Q${totalCli.toFixed(2)} acumulado</div>`:''}
+      <div style="font-size:10px;color:var(--grn);margin-top:2px">${c.nTransacciones} compra${c.nTransacciones!==1?'s':''} · Q${c.totalCompras.toFixed(2)} acumulado · ticket prom. Q${c.ticketPromedio.toFixed(2)}</div>
     </div>`;
   }).join('');
   wrap.style.display='block';
 }
 
-function seleccionarClienteModal(id){
-  const c = db.clientes?.find(x=>x.id===id); if(!c) return;
+function seleccionarClienteModal(nombre){
+  const todos = obtenerClientesDesdeVentas();
+  const c = todos.find(x => x.nombre === nombre); if(!c) return;
   document.getElementById('conf-cliente').value = c.nombre;
   document.getElementById('conf-nit').value = c.nit||'CF';
   document.getElementById('conf-telefono').value = c.telefono||'';
   document.getElementById('conf-cli-results').style.display='none';
-  // Guardar id para vincularlo a la venta
-  document.getElementById('conf-cliente').dataset.clienteId = id;
+  // Ya no usamos clienteId fijo — el sistema agrupa por nombre automáticamente
+  delete document.getElementById('conf-cliente').dataset.clienteId;
 }
 
 function exportarClientesExcel(){
-  if(!db.clientes?.length){ toast('Sin clientes registrados','err'); return; }
-  const data = db.clientes.map(c=>{
-    const ventas = (db.ventas||[]).filter(v=>v.clienteId===c.id&&!v.anulada);
-    return {
-      'Nombre': c.nombre, 'Teléfono': c.telefono||'', 'NIT': c.nit||'CF',
-      'Dirección': c.direccion||'', 'Notas': c.notas||'',
-      'Total compras Q': ventas.reduce((s,v)=>s+v.total,0).toFixed(2),
-      'Transacciones': ventas.length,
-      'Última compra': ventas.length ? fmtFecha(ventas[ventas.length-1].timestamp) : '—',
-    };
-  });
+  const todos = obtenerClientesDesdeVentas();
+  if(!todos.length){ toast('Sin clientes con compras registradas','err'); return; }
+  const data = todos.map(c=>({
+    'Nombre': c.nombre, 'Teléfono': c.telefono||'', 'NIT': c.nit||'CF',
+    'Dirección': c.direccion||'', 'Notas': c.notas||'',
+    'Total compras Q': c.totalCompras.toFixed(2),
+    'Transacciones': c.nTransacciones,
+    'Ticket promedio Q': c.ticketPromedio.toFixed(2),
+    'Días distintos de compra': c.fechasUnicas.length,
+    'Última compra': c.ultimaVenta ? fmtFecha(c.ultimaVenta.timestamp) : '—',
+  }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Clientes');
   XLSX.writeFile(wb, `clientes_central_norte_${hoy()}.xlsx`);
@@ -6267,13 +6306,19 @@ function generarFacturaVenta(ventaId){
   const v = db.ventas?.find(x=>x.id===ventaId); if(!v) return;
   _imprimirFactura(v);
 }
-function generarFacturaCliente(clienteId){
-  const ventas = (db.ventas||[]).filter(v=>v.clienteId===clienteId&&!v.anulada);
+function generarFacturaClientePorNombre(nombre){
+  const nombreNorm = normalizarTexto(nombre);
+  const ventas = (db.ventas||[]).filter(v=>normalizarTexto(v.cliente)===nombreNorm&&!v.anulada);
   if(!ventas.length){ toast('Este cliente no tiene ventas registradas','err'); return; }
   _imprimirFactura(ventas[ventas.length-1]);
 }
+// Compatibilidad: algunos botones viejos llaman con id, lo tratamos como nombre también
+function generarFacturaCliente(idONombre){
+  generarFacturaClientePorNombre(idONombre);
+}
 function _imprimirFactura(v){
-  const cli = v.clienteId ? db.clientes?.find(x=>x.id===v.clienteId) : null;
+  const nombreNorm = normalizarTexto(v.cliente);
+  const cli = (db.clientes||[]).find(c => normalizarTexto(c.nombre) === nombreNorm) || null;
   const telCliente = cli?.telefono || v.telefono || '';
   const nitCliente = cli?.nit || v.nit || 'CF';
   const ajuste = v.tipoAjusteLabel || '';
