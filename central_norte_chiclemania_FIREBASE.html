@@ -674,9 +674,14 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 10px">
       📋 Mis movimientos registrados
     </div>
+    <div style="position:relative;margin-bottom:10px">
+      <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--txt3)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input id="ped-hist-search" style="width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:9px 12px 9px 36px;color:var(--txt);font-size:13px;outline:none" placeholder="Buscar por producto, motivo o referencia..." oninput="renderPedidosHist(_pedHistFiltro)">
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('hoy')">Hoy</button>
       <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('semana')">Esta semana</button>
+      <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('mes')">Este mes</button>
       <button class="btn btn-sec btn-sm" onclick="filtrarPedidosHist('todo')">Todo</button>
       <button class="btn btn-success btn-sm" onclick="exportarPedidosExcel()" style="margin-left:auto">📊 Excel</button>
     </div>
@@ -1170,9 +1175,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div class="fgr">
         <label>Ver</label>
         <select id="caja-periodo" onchange="onCajaPeriodoChange()">
-          <option value="hoy" selected>Hoy</option>
+          <option value="hoy">Hoy</option>
           <option value="semana">Esta semana</option>
-          <option value="mes">Este mes</option>
+          <option value="mes" selected>Este mes</option>
           <option value="rango">Rango personalizado</option>
         </select>
       </div>
@@ -2636,12 +2641,38 @@ function confirmarVenta(){
 
   const clienteEl = document.getElementById('conf-cliente');
   const cliente = clienteEl.value.trim() || 'Consumidor Final';
-  const clienteId = clienteEl.dataset.clienteId || null;
   const nit = document.getElementById('conf-nit')?.value.trim() || 'CF';
   const telefono = document.getElementById('conf-telefono')?.value.trim() || '';
   const metodoPago = document.getElementById('conf-metodo-pago')?.value || 'efectivo';
   const numAuth = document.getElementById('conf-num-auth')?.value.trim() || '';
   const numTransf = document.getElementById('conf-num-transf')?.value.trim() || '';
+
+  // Vincular o crear cliente automáticamente (excepto "Consumidor Final" genérico)
+  let clienteId = clienteEl.dataset.clienteId || null;
+  if(!clienteId && cliente && cliente.toLowerCase() !== 'consumidor final'){
+    if(!db.clientes) db.clientes = [];
+    // Buscar coincidencia exacta por nombre (case-insensitive) o por teléfono
+    let clienteExistente = db.clientes.find(c =>
+      c.nombre.trim().toLowerCase() === cliente.trim().toLowerCase() ||
+      (telefono && c.telefono && c.telefono.replace(/\D/g,'') === telefono.replace(/\D/g,''))
+    );
+    if(clienteExistente){
+      clienteId = clienteExistente.id;
+      // Actualizar datos si vinieron más completos
+      if(telefono && !clienteExistente.telefono) clienteExistente.telefono = telefono;
+      if(nit && nit!=='CF' && (!clienteExistente.nit || clienteExistente.nit==='CF')) clienteExistente.nit = nit;
+    } else {
+      // Crear cliente nuevo automáticamente
+      const nuevoCliente = {
+        id: 'CLI-'+Date.now(),
+        nombre: cliente, telefono, nit: nit||'CF',
+        direccion: '', notas: '',
+        creadoEn: ahora(), creadoAuto: true,
+      };
+      db.clientes.push(nuevoCliente);
+      clienteId = nuevoCliente.id;
+    }
+  }
 
   if(metodoPago === 'tarjeta' && !numAuth){
     toast('Ingresá el número de autorización del voucher','err'); return;
@@ -4680,42 +4711,90 @@ function renderPedidosHist(filtro){
   if(!db.pedidos) db.pedidos = [];
   const hoyStr = hoy();
   let pedidos = [...db.pedidos].reverse();
+
   if(filtro==='hoy') pedidos = pedidos.filter(p=>p.fecha===hoyStr);
   else if(filtro==='semana'){
     const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
     pedidos = pedidos.filter(p=>p.fecha>=hace7.toISOString().slice(0,10));
+  } else if(filtro==='mes'){
+    const d = new Date();
+    const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+    pedidos = pedidos.filter(p=>p.fecha>=inicioMes);
   }
+
+  const q = (document.getElementById('ped-hist-search')?.value||'').toLowerCase().trim();
+  if(q){
+    pedidos = pedidos.filter(p =>
+      (p.motivo||'').toLowerCase().includes(q) ||
+      (p.ejecutadoPor||'').toLowerCase().includes(q) ||
+      p.items.some(i => i.nombre.toLowerCase().includes(q))
+    );
+  }
+
   const el = document.getElementById('ped-historial');
   if(!el) return;
   if(!pedidos.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-msg">Sin movimientos registrados aún</div></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udccb</div><div class="empty-msg">'+(q?'Sin resultados':'Sin movimientos registrados aún')+'</div></div>';
     return;
   }
-  el.innerHTML = pedidos.map(p => {
-    const color = p.tipo==='ingreso' ? 'var(--grn)' : 'var(--red)';
-    const icon = p.tipo==='ingreso' ? '📦' : '🚚';
-    const signo = p.tipo==='ingreso' ? '+' : '-';
-    return `<div class="admin-card" style="margin-bottom:10px;border-color:${p.tipo==='ingreso'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div>
-          <div style="font-weight:700;font-size:14px">${icon} ${p.tipo==='ingreso'?'Ingreso de pedido':'Salida / Traslado'}</div>
-          <div style="font-size:11px;color:var(--txt3);margin-top:2px">${fmtDateTime(p.timestamp)} · ${p.ejecutadoPor}</div>
-          <div style="font-size:12px;color:var(--txt2);margin-top:4px">📝 ${p.motivo}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:800;color:${color}">${signo}${p.totalUds} uds</div>
-          <div style="font-size:10px;color:var(--txt3)">DPI: ${p.dpi?.slice(0,4)}*****</div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">
-        ${p.items.map(i=>`${i.emoji} ${i.nombre}: <b style="color:${color}">${signo}${i.cant}</b>`).join(' · ')}
-      </div>
-      <button onclick="notificarStockWhatsApp(db.pedidos.find(x=>x.id==='${p.id}'))"
-        style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#25D366;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
-        📲 Notificar Admin WhatsApp
-      </button>
-    </div>`;
+
+  const rows = pedidos.map(p => {
+    const esIngreso = p.tipo==='ingreso';
+    const color = esIngreso ? 'var(--grn)' : 'var(--red)';
+    const icon = esIngreso ? '\ud83d\udce6' : '\ud83d\ude9a';
+    const signo = esIngreso ? '+' : '-';
+    const productosTexto = p.items.map(i=>i.nombre+' ('+signo+i.cant+')').join(', ');
+    const productosResumen = p.items.length > 2
+      ? p.items.slice(0,2).map(i=>i.nombre).join(', ')+' +'+(p.items.length-2)+' más'
+      : p.items.map(i=>i.nombre).join(', ');
+    return '<tr class="ped-row" onclick="verDetallePedido(\''+p.id+'\')" style="cursor:pointer">'
+      + '<td style="padding:10px 12px;white-space:nowrap">'
+        + '<div style="font-weight:600;font-size:12px">'+fmtFecha(p.timestamp)+'</div>'
+        + '<div style="font-size:11px;color:var(--txt3)">'+fmtHora(p.timestamp)+'</div>'
+      + '</td>'
+      + '<td style="padding:10px 12px">'
+        + '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;background:'+color+'18;color:'+color+'">'+icon+' '+(esIngreso?'Ingreso':'Salida')+'</span>'
+      + '</td>'
+      + '<td style="padding:10px 12px;font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+productosTexto.replace(/"/g,'&quot;')+'">'+productosResumen+'</td>'
+      + '<td style="padding:10px 12px;font-size:12px;color:var(--txt2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.motivo||'—')+'</td>'
+      + '<td style="padding:10px 12px;font-size:11px;color:var(--txt3)">'+p.ejecutadoPor+'</td>'
+      + '<td style="padding:10px 12px;text-align:right;white-space:nowrap">'
+        + '<span style="font-family:\'DM Mono\',monospace;font-weight:800;font-size:14px;color:'+color+'">'+signo+p.totalUds+' uds</span>'
+      + '</td>'
+      + '<td style="padding:10px 12px;text-align:right" onclick="event.stopPropagation()">'
+        + '<button onclick="notificarStockWhatsApp(db.pedidos.find(x=>x.id===\''+p.id+'\'))" '
+          + 'style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:#25D366;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">'
+          + '\ud83d\udcf2'
+        + '</button>'
+      + '</td>'
+    + '</tr>';
   }).join('');
+
+  el.innerHTML = ''
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">'+pedidos.length+' movimiento'+(pedidos.length!==1?'s':'')+'</div>'
+    + '<div style="overflow-x:auto;border:1px solid var(--bdr);border-radius:var(--r2)">'
+    + '<table style="width:100%;border-collapse:collapse;background:var(--card)">'
+      + '<thead><tr style="border-bottom:1px solid var(--bdr);background:var(--bg3)">'
+        + '<th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Fecha</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Tipo</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Productos</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Motivo</th>'
+        + '<th style="padding:10px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Por</th>'
+        + '<th style="padding:10px 12px;text-align:right;font-size:10px;color:var(--txt3);text-transform:uppercase">Total</th>'
+        + '<th style="padding:10px 12px;text-align:right;font-size:10px;color:var(--txt3);text-transform:uppercase"></th>'
+      + '</tr></thead>'
+      + '<tbody>'+rows+'</tbody>'
+    + '</table>'
+    + '</div>'
+    + '<style>.ped-row:hover{background:var(--bg3)}.ped-row td{border-bottom:1px solid var(--bdr)}</style>';
+}
+
+function verDetallePedido(id){
+  const p = db.pedidos.find(x=>x.id===id); if(!p) return;
+  const esIngreso = p.tipo==='ingreso';
+  const signo = esIngreso?'+':'-';
+  const detalle = p.items.map(i=>'• '+i.emoji+' '+i.nombre+': '+signo+i.cant).join('\n');
+  alert('\ud83d\udccb '+(esIngreso?'Ingreso':'Salida')+' — '+fmtDateTime(p.timestamp)+'\n\ud83d\udc64 '+p.ejecutadoPor+'\n\ud83d\udcdd '+p.motivo+'\n\n'+detalle+'\n\nTotal: '+signo+p.totalUds+' uds\nDPI: '+(p.dpi||'—'));
 }
 
 let _pedHistFiltro = 'hoy';
@@ -5407,14 +5486,43 @@ function renderClientes(){
     return;
   }
 
+  // Ordenar: clientes con más compras primero, luego por más reciente
   el.innerHTML = lista.map(c => {
     const ventasCli = (db.ventas||[]).filter(v => v.clienteId === c.id && !v.anulada);
+    return { c, ventasCli };
+  }).sort((a,b) => {
+    if(b.ventasCli.length !== a.ventasCli.length) return b.ventasCli.length - a.ventasCli.length;
+    const ua = a.ventasCli.length ? a.ventasCli[a.ventasCli.length-1].timestamp : '';
+    const ub = b.ventasCli.length ? b.ventasCli[b.ventasCli.length-1].timestamp : '';
+    return ub.localeCompare(ua);
+  }).map(({c, ventasCli}) => {
     const totalCompras = ventasCli.reduce((s,v)=>s+v.total,0);
     const ultimaCompra = ventasCli.length ? ventasCli[ventasCli.length-1] : null;
-    return `<div class="admin-card" style="margin-bottom:10px">
+
+    // Detectar fechas únicas de compra para ver si es cliente recurrente
+    const fechasUnicas = [...new Set(ventasCli.map(v=>v.fecha))].sort();
+    const esRecurrente = fechasUnicas.length >= 2;
+    let rachaTexto = '';
+    if(fechasUnicas.length >= 2){
+      // Verificar si hay días consecutivos
+      let maxRacha = 1, rachaActual = 1;
+      for(let i=1;i<fechasUnicas.length;i++){
+        const d1 = new Date(fechasUnicas[i-1]);
+        const d2 = new Date(fechasUnicas[i]);
+        const diffDias = Math.round((d2-d1)/(1000*60*60*24));
+        if(diffDias===1){ rachaActual++; maxRacha=Math.max(maxRacha,rachaActual); }
+        else rachaActual=1;
+      }
+      if(maxRacha >= 2) rachaTexto = '🔥 '+maxRacha+' días seguidos';
+    }
+
+    return `<div class="admin-card" style="margin-bottom:10px;${esRecurrente?'border-color:rgba(249,115,22,.25)':''}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">👤 ${c.nombre}</div>
+          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px">
+            👤 ${c.nombre}
+            ${esRecurrente?'<span style="font-size:9px;background:rgba(249,115,22,.18);color:var(--acc);padding:2px 7px;border-radius:99px;font-weight:700">CLIENTE FRECUENTE</span>':''}
+          </div>
           <div style="font-size:11px;color:var(--txt3);margin-top:3px">
             ${c.telefono?`📱 ${c.telefono} · `:''}NIT: <b>${c.nit||'CF'}</b>${c.direccion?' · 📍 '+c.direccion:''}
           </div>
@@ -5422,7 +5530,9 @@ function renderClientes(){
           <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
             <div style="font-size:11px"><span style="color:var(--txt3)">Compras:</span> <b style="color:var(--grn)">Q${totalCompras.toFixed(2)}</b></div>
             <div style="font-size:11px"><span style="color:var(--txt3)">Transacciones:</span> <b>${ventasCli.length}</b></div>
+            <div style="font-size:11px"><span style="color:var(--txt3)">Días distintos:</span> <b>${fechasUnicas.length}</b></div>
             ${ultimaCompra?`<div style="font-size:11px"><span style="color:var(--txt3)">Última:</span> <b>${fmtFecha(ultimaCompra.timestamp)}</b></div>`:''}
+            ${rachaTexto?`<div style="font-size:11px;color:var(--acc);font-weight:600">${rachaTexto}</div>`:''}
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
