@@ -1062,6 +1062,21 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       </div>
       <div id="prueba-status" style="font-size:12px;margin-top:10px;color:var(--txt3)"></div>
     </div>
+
+    <!-- REINICIO TOTAL PARA EMPEZAR EL MES DE PRUEBA REAL -->
+    <div class="admin-card" style="margin-bottom:14px;border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04)">
+      <div class="admin-card-title" style="color:var(--red)">🔴 Reinicio total del sistema <span class="admin-lock">🔐 Admin</span></div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">
+        Usá esto cuando estés listo para arrancar el <b>primer mes real</b> con la app. Borra absolutamente todo el historial acumulado hasta hoy — ventas, clientes, stock, caja, pedidos bodega, pedidos sugeridos, auditorías y movimientos — para que empieces desde cero con datos limpios. <b>El catálogo de productos NO se borra</b>, solo las cantidades vuelven a 0 para que cargues el inventario real.
+      </div>
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--red)">
+        ⚠️ <b>Esta acción NO se puede deshacer.</b> Asegurate de haber exportado a Excel cualquier dato de prueba que quieras conservar antes de continuar.
+      </div>
+      <button class="btn btn-danger btn-full" onclick="reinicioTotalSistema()" style="font-weight:800">
+        🔴 Borrar TODO y empezar de cero (clientes, ventas, stock, caja, pedidos)
+      </button>
+      <div id="reinicio-status" style="font-size:12px;margin-top:10px;color:var(--txt3)"></div>
+    </div>
   </div>
 
 
@@ -3866,6 +3881,80 @@ function soloLimpiarVentas(){
   const el = document.getElementById('prueba-status');
   if(el) el.innerHTML = `✅ Ventas y movimientos borrados. El stock se mantiene como está.`;
   toast('✅ Ventas de prueba borradas');
+}
+
+// ════════════════════════════════════════════════════
+//  REINICIO TOTAL — borra ventas, clientes, stock, caja,
+//  pedidos bodega, pedidos sugeridos, auditorías. NO toca el catálogo.
+// ════════════════════════════════════════════════════
+function reinicioTotalSistema(){
+  const primeraConfirmacion = confirm(
+    '⚠️ REINICIO TOTAL DEL SISTEMA\n\n' +
+    'Esto va a borrar PERMANENTEMENTE:\n' +
+    '• Todas las ventas\n' +
+    '• Todos los clientes\n' +
+    '• Todo el stock (vuelve a 0)\n' +
+    '• Todos los cierres de caja\n' +
+    '• Todos los pedidos bodega (ingresos/salidas)\n' +
+    '• Todos los pedidos sugeridos\n' +
+    '• Todas las auditorías y movimientos\n\n' +
+    'El catálogo de productos NO se borra, solo las cantidades.\n\n' +
+    '¿Continuar?'
+  );
+  if(!primeraConfirmacion) return;
+
+  const segundaConfirmacion = prompt('Para confirmar, escribí la palabra BORRAR (en mayúsculas):');
+  if(segundaConfirmacion !== 'BORRAR'){
+    toast('Reinicio cancelado — no se borró nada', 'warn');
+    return;
+  }
+
+  // Backup automático antes de borrar todo
+  try{
+    const wb = XLSX.utils.book_new();
+    if(db.ventas?.length){
+      const dataVentas = db.ventas.map(v => ({
+        'Fecha': fmtFecha(v.timestamp), 'Hora': fmtHora(v.timestamp),
+        'Venta ID': v.id, 'Cliente': v.cliente||'CF', 'NIT': v.nit||'CF',
+        'Total Q': v.total, 'Vendedor': v.vendedor,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataVentas), 'Ventas');
+    }
+    if(db.productos?.length){
+      const dataStock = db.productos.map(p => ({
+        'Producto': p.nombre, 'SKU': p.sku, 'Categoría': p.cat, 'Stock final': p.stock,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataStock), 'Stock antes del reinicio');
+    }
+    if(wb.SheetNames.length){
+      XLSX.writeFile(wb, `BACKUP_antes_reinicio_total_${hoy()}.xlsx`);
+    }
+  } catch(e){ console.warn('No se pudo generar backup automático', e); }
+
+  // Resetear stock de todos los productos a 0
+  db.productos.forEach(p => { p.stock = 0; });
+
+  // Borrar todo el historial operativo
+  db.ventas = [];
+  db.movimientos = [];
+  db.clientes = [];
+  db.cierresCaja = [];
+  db.pedidos = [];
+  db.pedidosSugeridos = [];
+  db.auditorias = [];
+  db.productosPendientes = [];
+
+  saveDB();
+
+  // Re-renderizar todo
+  poblarSelects(); poblarSelectPrueba(); poblarSelectPedido();
+  renderStock(); renderResumenAdmin(); renderHistorial('hoy');
+  renderPedidosHist('hoy'); renderAudHistorial();
+
+  const el = document.getElementById('reinicio-status');
+  if(el) el.innerHTML = `✅ <b>Sistema reiniciado completamente.</b> Se descargó un backup de respaldo.<br>
+    <span style="color:var(--txt3)">Ya podés cargar el inventario real y arrancar el mes de prueba desde cero.</span>`;
+  toast('✅ Reinicio total completado — sistema en blanco', 'ok');
 }
 
 
