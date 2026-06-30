@@ -1892,6 +1892,7 @@ function entrarApp(){
   if(!db.clientes) db.clientes=[];
   if(!db.cierresCaja) db.cierresCaja=[];
   if(!db.pedidosSugeridos) db.pedidosSugeridos=[];
+  migrarVentasAClientes();
   renderAudHistorial();
   actualizarMetaWidget();
   setTimeout(verificarAlertaPedidoSemanal, 2000);
@@ -5470,6 +5471,76 @@ function goPage(id, el){
 // ════════════════════════════════════════════════════
 //  MÓDULO: CLIENTES
 // ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  MIGRACIÓN: vincular ventas viejas con clientes
+//  (para ventas hechas antes de tener el sistema de clientes)
+// ════════════════════════════════════════════════════
+function normalizarTexto(s){
+  return (s||'').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // quita acentos
+}
+function normalizarTelefono(s){
+  return (s||'').toString().replace(/\D/g,'');
+}
+
+function migrarVentasAClientes(){
+  if(!db.ventas?.length) return;
+  if(!db.clientes) db.clientes = [];
+  let creados = 0, vinculados = 0;
+
+  db.ventas.forEach(v => {
+    // Ya tiene clienteId — nada que hacer
+    if(v.clienteId) return;
+    // "Consumidor Final" genérico no se convierte en cliente
+    const nombreNorm = normalizarTexto(v.cliente);
+    if(!nombreNorm || nombreNorm === 'consumidor final') return;
+
+    const telNorm = normalizarTelefono(v.telefono);
+    const nitNorm = normalizarTexto(v.nit);
+
+    // Buscar cliente existente por: mismo nombre, O mismo teléfono (si ambos tienen tel), O mismo NIT (si no es CF)
+    let match = db.clientes.find(c => {
+      const cNombreNorm = normalizarTexto(c.nombre);
+      const cTelNorm = normalizarTelefono(c.telefono);
+      const cNitNorm = normalizarTexto(c.nit);
+
+      const mismoNombre = cNombreNorm === nombreNorm;
+      const mismoTelefono = telNorm && cTelNorm && telNorm === cTelNorm;
+      const mismoNit = nitNorm && nitNorm !== 'cf' && cNitNorm === nitNorm;
+
+      // Confirmación: nombre igual ES el criterio principal.
+      // Si además coincide teléfono o NIT, más seguro aún — pero el nombre solo ya alcanza.
+      return mismoNombre || mismoTelefono || mismoNit;
+    });
+
+    if(match){
+      v.clienteId = match.id;
+      // Completar datos si la venta trae algo que el cliente no tiene
+      if(v.telefono && !match.telefono) match.telefono = v.telefono;
+      if(v.nit && v.nit !== 'CF' && (!match.nit || match.nit === 'CF')) match.nit = v.nit;
+      vinculados++;
+    } else {
+      // Crear cliente nuevo a partir de esta venta histórica
+      const nuevoCliente = {
+        id: 'CLI-MIG-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+        nombre: v.cliente,
+        telefono: v.telefono || '',
+        nit: v.nit && v.nit !== 'CF' ? v.nit : 'CF',
+        direccion: '', notas: '',
+        creadoEn: v.timestamp, creadoAuto: true, migrado: true,
+      };
+      db.clientes.push(nuevoCliente);
+      v.clienteId = nuevoCliente.id;
+      creados++;
+    }
+  });
+
+  if(creados > 0 || vinculados > 0){
+    saveDB();
+    console.log(`✅ Migración de clientes: ${creados} creados, ${vinculados} vinculados`);
+  }
+}
+
 function renderClientes(){
   if(!db.clientes) db.clientes = [];
   const q = (document.getElementById('cli-search')?.value||'').toLowerCase().trim();
