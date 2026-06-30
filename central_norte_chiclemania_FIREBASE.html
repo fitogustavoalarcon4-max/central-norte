@@ -429,7 +429,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <span class="tab-icon">📋</span> Historial
     </button>
     <button class="nav-tab" id="tab-pedidos" onclick="goPage('pedidos',this)">
-      <span class="tab-icon">📥</span> Pedidos
+      <span class="tab-icon">📥</span> Pedidos Bodega
     </button>
     <button class="nav-tab" id="tab-auditoria" onclick="goPage('auditoria',this)">
       <span class="tab-icon">✅</span> Auditoría
@@ -583,7 +583,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
   <!-- ── PÁGINA: PEDIDOS ── -->
   <div class="page" id="page-pedidos">
-    <div class="page-title">📥 Pedidos e Inventario</div>
+    <div class="page-title">📥 Pedidos Bodega — Inventario</div>
     <div class="page-sub">Ingresos y salidas de stock · Todo queda registrado con tu nombre</div>
 
     <!-- TIPO DE MOVIMIENTO -->
@@ -1161,13 +1161,57 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- ══ PÁGINA: CAJA DIARIA ══ -->
 <div class="page" id="page-caja" style="display:none;padding:16px">
   <div class="page-title">💰 Caja Diaria</div>
-  <div class="page-sub" id="caja-fecha-sub">Corte y cierre de caja</div>
+  <div class="page-sub">Cuadre de ventas, efectivo y tarjeta</div>
 
+  <!-- SELECTOR DE RANGO UNIFICADO -->
+  <div class="venta-form" style="margin-bottom:14px">
+    <div class="venta-form-title">📅 Período a consultar</div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="fgr">
+        <label>Ver</label>
+        <select id="caja-periodo" onchange="onCajaPeriodoChange()">
+          <option value="hoy" selected>Hoy</option>
+          <option value="semana">Esta semana</option>
+          <option value="mes">Este mes</option>
+          <option value="rango">Rango personalizado</option>
+        </select>
+      </div>
+      <div class="fgr" id="caja-fecha-especifica-wrap">
+        <label>Fecha específica</label>
+        <input type="date" id="caja-fecha-especifica" onchange="setCajaFechaEspecifica()">
+      </div>
+    </div>
+    <div id="caja-rango-wrap" style="display:none">
+      <div class="form-row" style="margin-bottom:6px">
+        <div class="fgr">
+          <label>Desde</label>
+          <input type="date" id="caja-rango-desde" onchange="renderCajaStats()">
+        </div>
+        <div class="fgr">
+          <label>Hasta</label>
+          <input type="date" id="caja-rango-hasta" onchange="renderCajaStats()">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-success btn-sm" onclick="exportarCajaExcel()">📊 Excel</button>
+      <button class="btn btn-sec btn-sm" onclick="exportarCajaPDF()">🖨️ PDF</button>
+    </div>
+  </div>
+
+  <div class="page-sub" id="caja-fecha-sub" style="margin-bottom:8px">Hoy</div>
   <div class="stats-row" id="caja-stats"></div>
 
-  <div class="venta-form">
-    <div class="venta-form-title">🏁 Cierre de caja</div>
-    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Ingresá el efectivo físico que tenés en caja. El sistema compara con lo que debería haber según las ventas.</div>
+  <!-- Desglose efectivo vs tarjeta -->
+  <div class="venta-form" id="caja-desglose-pago-wrap" style="margin-bottom:14px">
+    <div class="venta-form-title">💳 Desglose por método de pago</div>
+    <div id="caja-desglose-pago"></div>
+  </div>
+
+  <!-- CIERRE DEL DÍA -->
+  <div class="venta-form" style="margin-bottom:14px">
+    <div class="venta-form-title">🏁 Cierre de caja del día</div>
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Ingresá el efectivo físico que tenés en caja. El sistema compara con lo que debería haber según las ventas en efectivo (las de tarjeta no cuentan como efectivo físico).</div>
     <div class="form-row">
       <div class="fgr">
         <label>Efectivo en caja (Q)</label>
@@ -1183,7 +1227,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <label>Observaciones del cierre</label>
       <input type="text" id="caja-obs" placeholder="Ej: todo cuadra, falta Q10 por vuelto...">
     </div>
-    <button class="btn btn-primary btn-full" onclick="cerrarCaja()">💾 Guardar cierre de caja</button>
+    <button class="btn btn-primary btn-full" onclick="cerrarCaja()">💾 Guardar cierre de caja del día</button>
   </div>
 
   <div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 10px">📋 Cierres anteriores</div>
@@ -1194,6 +1238,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <div class="page" id="page-pedido-semanal" style="display:none;padding:16px">
   <div class="page-title">📋 Sugerencia de Pedido Semanal</div>
   <div class="page-sub">Productos bajo mínimo — marcá lo que vas a pedir</div>
+
 
   <div id="pedido-semanal-alerta" style="display:none;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:var(--r2);padding:14px;margin-bottom:14px">
     <div style="font-size:14px;font-weight:700;color:var(--acc)">📦 ¡Es lunes! Revisá tu pedido semanal</div>
@@ -1387,7 +1432,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div style="display:flex;gap:8px;margin-top:6px">
         <div class="fgr" style="flex:1">
           <label style="font-size:10px">NIT / CF</label>
-          <input type="text" id="conf-nit" placeholder="CF" style="font-size:13px;padding:7px 10px">
+          <input type="text" id="conf-nit" placeholder="CF" style="font-size:13px;padding:7px 10px" oninput="filtrarClientesModal(this.value)" onfocus="filtrarClientesModal(this.value)">
         </div>
         <div class="fgr" style="flex:1">
           <label style="font-size:10px">Teléfono</label>
@@ -1395,9 +1440,28 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         </div>
       </div>
     </div>
+
+    <!-- MÉTODO DE PAGO -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:var(--txt3);display:block;margin-bottom:6px">💳 Método de pago</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button type="button" id="btn-pago-efectivo" onclick="setMetodoPago('efectivo')" class="btn btn-sec btn-sm" style="flex:1">💵 Efectivo</button>
+        <button type="button" id="btn-pago-tarjeta" onclick="setMetodoPago('tarjeta')" class="btn btn-sec btn-sm" style="flex:1">💳 Tarjeta</button>
+        <button type="button" id="btn-pago-transferencia" onclick="setMetodoPago('transferencia')" class="btn btn-sec btn-sm" style="flex:1">🏦 Transf.</button>
+      </div>
+      <div id="pago-tarjeta-wrap" style="display:none">
+        <input type="text" id="conf-num-auth" placeholder="Número de autorización / voucher" style="font-size:13px;padding:8px 10px;border-color:var(--blu)">
+      </div>
+      <div id="pago-transferencia-wrap" style="display:none">
+        <input type="text" id="conf-num-transf" placeholder="Número de referencia de transferencia" style="font-size:13px;padding:8px 10px;border-color:var(--blu)">
+      </div>
+      <input type="hidden" id="conf-metodo-pago" value="efectivo">
+    </div>
+
     <div style="display:flex;gap:8px">
       <button class="btn btn-sec" style="flex:1" onclick="cerrarModal('modal-conf')">Cancelar</button>
       <button class="btn btn-primary" style="flex:2" onclick="confirmarVenta()">✓ Registrar venta</button>
+
     </div>
   </div>
 </div>
@@ -2350,6 +2414,19 @@ function limpiarCarrito(){
 let _tipoAjuste = 'none'; // none | desc-q | desc-p | rec-p | total
 let _subtotalBase = 0;
 
+function setMetodoPago(metodo){
+  document.getElementById('conf-metodo-pago').value = metodo;
+  ['efectivo','tarjeta','transferencia'].forEach(m=>{
+    const btn = document.getElementById('btn-pago-'+m);
+    if(!btn) return;
+    btn.style.background = m===metodo ? 'rgba(249,115,22,.25)' : '';
+    btn.style.borderColor = m===metodo ? 'var(--acc)' : '';
+    btn.style.color = m===metodo ? 'var(--acc)' : '';
+  });
+  document.getElementById('pago-tarjeta-wrap').style.display = metodo==='tarjeta' ? 'block' : 'none';
+  document.getElementById('pago-transferencia-wrap').style.display = metodo==='transferencia' ? 'block' : 'none';
+}
+
 function abrirConfVenta(){
   if(!carrito.length){ toast('El carrito está vacío','err'); return; }
   _subtotalBase = carrito.reduce((s,i) => s + (i.precioCustom ?? i.precio) * i.cant, 0);
@@ -2368,6 +2445,11 @@ function abrirConfVenta(){
   document.getElementById('modal-conf-subtotal').textContent = `Q${_subtotalBase.toFixed(2)}`;
   document.getElementById('modal-conf-total').textContent = `Q${_subtotalBase.toFixed(2)}`;
   document.getElementById('modal-conf-total').style.color = 'var(--grn)';
+
+  // Reset método de pago
+  document.getElementById('conf-num-auth').value = '';
+  document.getElementById('conf-num-transf').value = '';
+  setMetodoPago('efectivo');
 
   // Precargar total editable con el subtotal
   const adjTotalEl = document.getElementById('adj-total-val');
@@ -2557,6 +2639,16 @@ function confirmarVenta(){
   const clienteId = clienteEl.dataset.clienteId || null;
   const nit = document.getElementById('conf-nit')?.value.trim() || 'CF';
   const telefono = document.getElementById('conf-telefono')?.value.trim() || '';
+  const metodoPago = document.getElementById('conf-metodo-pago')?.value || 'efectivo';
+  const numAuth = document.getElementById('conf-num-auth')?.value.trim() || '';
+  const numTransf = document.getElementById('conf-num-transf')?.value.trim() || '';
+
+  if(metodoPago === 'tarjeta' && !numAuth){
+    toast('Ingresá el número de autorización del voucher','err'); return;
+  }
+  if(metodoPago === 'transferencia' && !numTransf){
+    toast('Ingresá el número de referencia de la transferencia','err'); return;
+  }
   const venta = {
     id: 'VTA-' + Date.now(),
     timestamp: ts,
@@ -2570,6 +2662,9 @@ function confirmarVenta(){
     motivoDescuento: motivoDesc,
     tipoAjuste: _tipoAjuste,
     tipoAjusteLabel,
+    metodoPago,
+    numAuth,
+    numTransf,
     items: carrito.map(i => ({
       prodId: i.prodId,
       nombre: i.nombre,
@@ -2612,6 +2707,8 @@ function confirmarVenta(){
   if(cliEl){ cliEl.value=''; delete cliEl.dataset.clienteId; }
   if(document.getElementById('conf-nit')) document.getElementById('conf-nit').value='';
   if(document.getElementById('conf-telefono')) document.getElementById('conf-telefono').value='';
+  if(document.getElementById('conf-num-auth')) document.getElementById('conf-num-auth').value='';
+  if(document.getElementById('conf-num-transf')) document.getElementById('conf-num-transf').value='';
   poblarSelects();
   actualizarMetaWidget();
   if(alertasNegativas.length){
@@ -5400,15 +5497,27 @@ function verHistorialCliente(id){
 function filtrarClientesModal(q){
   const wrap = document.getElementById('conf-cli-results');
   if(!q.trim() || !db.clientes?.length){ wrap.style.display='none'; return; }
-  const t = q.toLowerCase();
-  const res = (db.clientes||[]).filter(c => c.nombre.toLowerCase().includes(t) || (c.telefono||'').includes(t)).slice(0,6);
-  if(!res.length){ wrap.style.display='none'; return; }
-  wrap.innerHTML = res.map(c=>`
-    <div onmousedown="seleccionarClienteModal('${c.id}')"
+  const t = q.toLowerCase().trim();
+  const res = (db.clientes||[]).filter(c =>
+    c.nombre.toLowerCase().includes(t) ||
+    (c.telefono||'').includes(t) ||
+    (c.nit||'').toLowerCase().includes(t)
+  ).slice(0,8);
+  if(!res.length){
+    wrap.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--txt3)">Sin resultados — se guardará como cliente nuevo</div>`;
+    wrap.style.display='block';
+    return;
+  }
+  wrap.innerHTML = res.map(c=>{
+    const ventasCli = (db.ventas||[]).filter(v=>v.clienteId===c.id&&!v.anulada);
+    const totalCli = ventasCli.reduce((s,v)=>s+v.total,0);
+    return `<div onmousedown="seleccionarClienteModal('${c.id}')"
       style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bdr);font-size:13px"
       onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-      <b>${c.nombre}</b> <span style="color:var(--txt3);font-size:11px">· NIT: ${c.nit||'CF'}${c.telefono?' · '+c.telefono:''}</span>
-    </div>`).join('');
+      <b>${c.nombre}</b> <span style="color:var(--txt3);font-size:11px">· NIT: ${c.nit||'CF'}${c.telefono?' · 📱'+c.telefono:''}</span>
+      ${ventasCli.length?`<div style="font-size:10px;color:var(--grn);margin-top:2px">${ventasCli.length} compras · Q${totalCli.toFixed(2)} acumulado</div>`:''}
+    </div>`;
+  }).join('');
   wrap.style.display='block';
 }
 
@@ -5443,37 +5552,113 @@ function exportarClientesExcel(){
 // ════════════════════════════════════════════════════
 //  MÓDULO: CAJA DIARIA
 // ════════════════════════════════════════════════════
-function renderCajaStats(){
+let _cajaUltDatos = null;
+
+function getCajaRango(){
+  const periodo = document.getElementById('caja-periodo')?.value || 'hoy';
   const hoyStr = hoy();
-  const ventasHoy = (db.ventas||[]).filter(v=>v.fecha===hoyStr&&!v.anulada);
-  const totalVentas = ventasHoy.reduce((s,v)=>s+v.total,0);
-  const nVentas = ventasHoy.length;
-  const descuentos = ventasHoy.reduce((s,v)=>s+(v.descuento||0),0);
+  let desde = hoyStr, hasta = hoyStr, label = 'Hoy';
+
+  if(periodo === 'hoy'){
+    const fechaEsp = document.getElementById('caja-fecha-especifica')?.value;
+    if(fechaEsp){ desde = hasta = fechaEsp; label = fmtFecha(fechaEsp+'T00:00:00'); }
+    else { label = 'Hoy ' + fmtFecha(new Date().toISOString()); }
+  } else if(periodo === 'semana'){
+    const d = new Date(); d.setDate(d.getDate()-6);
+    desde = d.toISOString().slice(0,10); hasta = hoyStr;
+    label = 'Esta semana (' + fmtFecha(desde+'T00:00:00') + ' → ' + fmtFecha(hasta+'T00:00:00') + ')';
+  } else if(periodo === 'mes'){
+    const d = new Date();
+    desde = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+    hasta = hoyStr;
+    label = 'Este mes (' + fmtFecha(desde+'T00:00:00') + ' → ' + fmtFecha(hasta+'T00:00:00') + ')';
+  } else if(periodo === 'rango'){
+    desde = document.getElementById('caja-rango-desde')?.value || hoyStr;
+    hasta = document.getElementById('caja-rango-hasta')?.value || hoyStr;
+    label = fmtFecha(desde+'T00:00:00') + ' → ' + fmtFecha(hasta+'T00:00:00');
+  }
+  return { desde, hasta, label, periodo };
+}
+
+function onCajaPeriodoChange(){
+  const periodo = document.getElementById('caja-periodo')?.value;
+  document.getElementById('caja-fecha-especifica-wrap').style.display = periodo==='hoy' ? 'block' : 'none';
+  document.getElementById('caja-rango-wrap').style.display = periodo==='rango' ? 'block' : 'none';
+  renderCajaStats();
+}
+
+function setCajaFechaEspecifica(){ renderCajaStats(); }
+
+function renderCajaStats(){
+  const { desde, hasta, label } = getCajaRango();
+  const ventas = (db.ventas||[]).filter(v => !v.anulada && v.fecha >= desde && v.fecha <= hasta);
+
+  const totalVentas = ventas.reduce((s,v)=>s+v.total,0);
+  const nVentas = ventas.length;
+  const descuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0);
+
+  // Desglose por método de pago
+  const efectivo = ventas.filter(v=>!v.metodoPago||v.metodoPago==='efectivo');
+  const tarjeta = ventas.filter(v=>v.metodoPago==='tarjeta');
+  const transferencia = ventas.filter(v=>v.metodoPago==='transferencia');
+  const totalEfectivo = efectivo.reduce((s,v)=>s+v.total,0);
+  const totalTarjeta = tarjeta.reduce((s,v)=>s+v.total,0);
+  const totalTransferencia = transferencia.reduce((s,v)=>s+v.total,0);
+
   const subEl = document.getElementById('caja-fecha-sub');
-  if(subEl) subEl.textContent = `Hoy ${fmtFecha(new Date().toISOString())} · ${nVentas} ventas`;
+  if(subEl) subEl.textContent = label + ' · ' + nVentas + ' ventas';
+
   const statsEl = document.getElementById('caja-stats');
-  if(statsEl) statsEl.innerHTML = `
-    <div class="stat-card"><div class="stat-label">Ventas del día</div><div class="stat-val" style="color:var(--grn)">Q${totalVentas.toFixed(2)}</div><div class="stat-note">${nVentas} transacciones</div></div>
-    <div class="stat-card"><div class="stat-label">Descuentos aplicados</div><div class="stat-val" style="color:var(--yel)">Q${descuentos.toFixed(2)}</div><div class="stat-note">total descontado</div></div>
-    <div class="stat-card"><div class="stat-label">Efectivo esperado</div><div class="stat-val" style="color:var(--acc)">Q${totalVentas.toFixed(2)}</div><div class="stat-note">según el sistema</div></div>`;
+  if(statsEl) statsEl.innerHTML = ''
+    + '<div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-val" style="color:var(--grn)">Q'+totalVentas.toFixed(2)+'</div><div class="stat-note">'+nVentas+' transacciones</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Descuentos</div><div class="stat-val" style="color:var(--yel)">Q'+descuentos.toFixed(2)+'</div><div class="stat-note">total descontado</div></div>'
+    + '<div class="stat-card"><div class="stat-label">Efectivo esperado</div><div class="stat-val" style="color:var(--acc)">Q'+totalEfectivo.toFixed(2)+'</div><div class="stat-note">para cuadre físico</div></div>';
+
+  const descEl = document.getElementById('caja-desglose-pago');
+  if(descEl) descEl.innerHTML = ''
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'
+      + '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">'
+        + '<div style="font-size:18px">💵</div>'
+        + '<div style="font-size:10px;color:var(--txt3);text-transform:uppercase;margin:4px 0">Efectivo</div>'
+        + '<div style="font-family:\'DM Mono\',monospace;font-weight:800;font-size:15px;color:var(--grn)">Q'+totalEfectivo.toFixed(2)+'</div>'
+        + '<div style="font-size:10px;color:var(--txt3)">'+efectivo.length+' ventas</div>'
+      + '</div>'
+      + '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">'
+        + '<div style="font-size:18px">💳</div>'
+        + '<div style="font-size:10px;color:var(--txt3);text-transform:uppercase;margin:4px 0">Tarjeta</div>'
+        + '<div style="font-family:\'DM Mono\',monospace;font-weight:800;font-size:15px;color:var(--blu)">Q'+totalTarjeta.toFixed(2)+'</div>'
+        + '<div style="font-size:10px;color:var(--txt3)">'+tarjeta.length+' ventas</div>'
+      + '</div>'
+      + '<div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">'
+        + '<div style="font-size:18px">🏦</div>'
+        + '<div style="font-size:10px;color:var(--txt3);text-transform:uppercase;margin:4px 0">Transferencia</div>'
+        + '<div style="font-family:\'DM Mono\',monospace;font-weight:800;font-size:15px;color:#a855f7">Q'+totalTransferencia.toFixed(2)+'</div>'
+        + '<div style="font-size:10px;color:var(--txt3)">'+transferencia.length+' ventas</div>'
+      + '</div>'
+    + '</div>'
+    + (tarjeta.length ? '<div style="margin-top:10px;font-size:11px;color:var(--txt3)"><b>Vouchers tarjeta:</b> '+tarjeta.map(v=>v.numAuth||'s/n').join(', ')+'</div>' : '')
+    + (transferencia.length ? '<div style="margin-top:4px;font-size:11px;color:var(--txt3)"><b>Referencias:</b> '+transferencia.map(v=>v.numTransf||'s/n').join(', ')+'</div>' : '');
+
   document.getElementById('caja-diferencia').innerHTML = '<span style="color:var(--txt3)">Ingresá el efectivo para ver la diferencia</span>';
+
+  // Guardar para exportar
+  _cajaUltDatos = { desde, hasta, label, ventas, totalVentas, nVentas, descuentos, totalEfectivo, totalTarjeta, totalTransferencia, efectivo, tarjeta, transferencia };
 }
 
 function calcularDiferenciaCaja(){
-  const hoyStr = hoy();
-  const ventasHoy = (db.ventas||[]).filter(v=>v.fecha===hoyStr&&!v.anulada);
-  const totalSistema = ventasHoy.reduce((s,v)=>s+v.total,0);
+  const { totalEfectivo } = _cajaUltDatos || {};
+  const totalSistema = totalEfectivo || 0;
   const efectivo = parseFloat(document.getElementById('caja-efectivo').value)||0;
   const fondo = parseFloat(document.getElementById('caja-fondo').value)||0;
   const efectivoNeto = efectivo - fondo;
   const diferencia = efectivoNeto - totalSistema;
   const el = document.getElementById('caja-diferencia');
   const color = diferencia===0?'var(--grn)':diferencia>0?'var(--blu)':'var(--red)';
-  const label = diferencia===0?'✅ Cuadra perfectamente':diferencia>0?`📈 Sobrante Q${Math.abs(diferencia).toFixed(2)}`:`📉 Faltante Q${Math.abs(diferencia).toFixed(2)}`;
-  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div><div style="font-size:11px;color:var(--txt3)">Sistema: <b>Q${totalSistema.toFixed(2)}</b> · Efectivo neto: <b>Q${efectivoNeto.toFixed(2)}</b></div></div>
-    <div style="font-size:16px;font-weight:800;color:${color}">${label}</div>
-  </div>`;
+  const label = diferencia===0?'✅ Cuadra perfectamente':diferencia>0?('📈 Sobrante Q'+Math.abs(diferencia).toFixed(2)):('📉 Faltante Q'+Math.abs(diferencia).toFixed(2));
+  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+    + '<div><div style="font-size:11px;color:var(--txt3)">Efectivo esperado: <b>Q'+totalSistema.toFixed(2)+'</b> · Efectivo neto: <b>Q'+efectivoNeto.toFixed(2)+'</b></div></div>'
+    + '<div style="font-size:16px;font-weight:800;color:'+color+'">'+label+'</div>'
+  + '</div>';
 }
 
 function cerrarCaja(){
@@ -5481,24 +5666,30 @@ function cerrarCaja(){
   const fondo = parseFloat(document.getElementById('caja-fondo').value)||0;
   const obs = document.getElementById('caja-obs').value.trim();
   if(!efectivo && !fondo){ toast('Ingresá el efectivo en caja','err'); return; }
-  const hoyStr = hoy();
-  const ventasHoy = (db.ventas||[]).filter(v=>v.fecha===hoyStr&&!v.anulada);
-  const totalSistema = ventasHoy.reduce((s,v)=>s+v.total,0);
+
+  const datos = _cajaUltDatos || getCajaRango();
+  const totalSistema = datos.totalEfectivo || 0;
+  const totalGeneral = datos.totalVentas || 0;
   const efectivoNeto = efectivo - fondo;
   const diferencia = efectivoNeto - totalSistema;
+
   if(!db.cierresCaja) db.cierresCaja = [];
   db.cierresCaja.push({
-    id:'CAJA-'+Date.now(), timestamp:ahora(), fecha:hoyStr,
-    totalSistema, efectivo, fondo, efectivoNeto, diferencia,
+    id:'CAJA-'+Date.now(), timestamp:ahora(), fecha:hoy(),
+    periodoDesde: datos.desde, periodoHasta: datos.hasta, periodoLabel: datos.label,
+    totalSistema, totalGeneral,
+    totalTarjeta: datos.totalTarjeta||0, totalTransferencia: datos.totalTransferencia||0,
+    efectivo, fondo, efectivoNeto, diferencia,
     obs, ejecutadoPor: _rolActual==='admin'?'Admin':'Rosmery Archila',
-    nVentas: ventasHoy.length,
+    nVentas: datos.nVentas||0,
   });
   saveDB();
   document.getElementById('caja-efectivo').value='';
   document.getElementById('caja-fondo').value='';
   document.getElementById('caja-obs').value='';
+  document.getElementById('caja-diferencia').innerHTML = '<span style="color:var(--txt3)">Ingresá el efectivo para ver la diferencia</span>';
   renderCajaHistorial();
-  toast(`✅ Cierre de caja guardado — ${diferencia===0?'Cuadra':diferencia>0?'Sobrante Q'+Math.abs(diferencia).toFixed(2):'Faltante Q'+Math.abs(diferencia).toFixed(2)}`);
+  toast('✅ Cierre de caja guardado — ' + (diferencia===0?'Cuadra':diferencia>0?'Sobrante Q'+Math.abs(diferencia).toFixed(2):'Faltante Q'+Math.abs(diferencia).toFixed(2)));
 }
 
 function renderCajaHistorial(){
@@ -5509,19 +5700,84 @@ function renderCajaHistorial(){
   if(!lista.length){ el.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-msg">Sin cierres guardados aún</div></div>'; return; }
   el.innerHTML = lista.map(c=>{
     const color = c.diferencia===0?'var(--grn)':c.diferencia>0?'var(--blu)':'var(--red)';
-    const label = c.diferencia===0?'✅ Cuadra':c.diferencia>0?`📈 +Q${Math.abs(c.diferencia).toFixed(2)}`:`📉 -Q${Math.abs(c.diferencia).toFixed(2)}`;
-    return `<div class="admin-card" style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
-        <div>
-          <div style="font-weight:700">${fmtFecha(c.timestamp)} <span style="font-weight:400;font-size:12px;color:var(--txt3)">${fmtHora(c.timestamp)}</span></div>
-          <div style="font-size:11px;color:var(--txt3);margin-top:3px">Sistema: Q${c.totalSistema.toFixed(2)} · Efectivo: Q${c.efectivoNeto.toFixed(2)} · ${c.nVentas} ventas · ${c.ejecutadoPor}</div>
-          ${c.obs?`<div style="font-size:11px;color:var(--txt2);margin-top:2px">💬 ${c.obs}</div>`:''}
-        </div>
-        <div style="font-size:16px;font-weight:800;color:${color};flex-shrink:0">${label}</div>
-      </div>
-    </div>`;
+    const label = c.diferencia===0?'✅ Cuadra':c.diferencia>0?('📈 +Q'+Math.abs(c.diferencia).toFixed(2)):('📉 -Q'+Math.abs(c.diferencia).toFixed(2));
+    return '<div class="admin-card" style="margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
+        + '<div>'
+          + '<div style="font-weight:700">'+fmtFecha(c.timestamp)+' <span style="font-weight:400;font-size:12px;color:var(--txt3)">'+fmtHora(c.timestamp)+'</span></div>'
+          + '<div style="font-size:11px;color:var(--txt3);margin-top:3px">'+(c.periodoLabel||'')+'</div>'
+          + '<div style="font-size:11px;color:var(--txt3);margin-top:3px">Efectivo sistema: Q'+c.totalSistema.toFixed(2)+' · Tarjeta: Q'+(c.totalTarjeta||0).toFixed(2)+' · '+c.nVentas+' ventas · '+c.ejecutadoPor+'</div>'
+          + (c.obs?'<div style="font-size:11px;color:var(--txt2);margin-top:2px">💬 '+c.obs+'</div>':'')
+        + '</div>'
+        + '<div style="font-size:16px;font-weight:800;color:'+color+';flex-shrink:0">'+label+'</div>'
+      + '</div>'
+    + '</div>';
   }).join('');
 }
+
+function exportarCajaExcel(){
+  const datos = _cajaUltDatos || getCajaRango();
+  if(!datos.ventas || !datos.ventas.length){ toast('Sin ventas en este período','err'); return; }
+  const wb = XLSX.utils.book_new();
+
+  const resumen = [{
+    'Período': datos.label,
+    'Total vendido Q': datos.totalVentas.toFixed(2),
+    'Transacciones': datos.nVentas,
+    'Efectivo Q': datos.totalEfectivo.toFixed(2),
+    'Tarjeta Q': datos.totalTarjeta.toFixed(2),
+    'Transferencia Q': datos.totalTransferencia.toFixed(2),
+    'Descuentos Q': datos.descuentos.toFixed(2),
+  }];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+
+  const detalle = datos.ventas.map(v=>({
+    'Fecha': fmtFecha(v.timestamp), 'Hora': fmtHora(v.timestamp),
+    'Venta ID': v.id, 'Cliente': v.cliente||'CF', 'NIT': v.nit||'CF',
+    'Método pago': v.metodoPago||'efectivo',
+    'N° Autorización/Ref': v.numAuth||v.numTransf||'',
+    'Total Q': v.total.toFixed(2), 'Descuento Q': (v.descuento||0).toFixed(2),
+    'Vendedor': v.vendedor==='admin'?'Admin':'Rosmery Archila',
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle ventas');
+
+  XLSX.writeFile(wb, 'caja_central_norte_'+hoy()+'.xlsx');
+  toast('✅ Excel de caja exportado');
+}
+
+function exportarCajaPDF(){
+  const datos = _cajaUltDatos || getCajaRango();
+  if(!datos.ventas || !datos.ventas.length){ toast('Sin ventas en este período','err'); return; }
+
+  const rows = datos.ventas.map(v=>'<tr>'
+    +'<td style="padding:5px 8px;font-size:10px">'+fmtFecha(v.timestamp)+' '+fmtHora(v.timestamp)+'</td>'
+    +'<td style="padding:5px 8px;font-size:10px">'+(v.cliente||'CF')+'</td>'
+    +'<td style="padding:5px 8px;font-size:10px;text-align:center">'+(v.metodoPago==='tarjeta'?'💳 Tarjeta':v.metodoPago==='transferencia'?'🏦 Transf.':'💵 Efectivo')+'</td>'
+    +'<td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">Q'+v.total.toFixed(2)+'</td>'
+  +'</tr>').join('');
+
+  const w = window.open('','_blank','width=750,height=700');
+  w.document.write('<!DOCTYPE html><html><head><title>Cuadre de Caja</title>'
+    +'<style>body{font-family:Arial,sans-serif;padding:24px;font-size:12px}h1{color:#f97316;font-size:18px}'
+    +'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}'
+    +'.stat{background:#fff8f0;border:1px solid #fed7aa;border-radius:8px;padding:10px;text-align:center}'
+    +'.stat-v{font-size:16px;font-weight:800;color:#f97316}.stat-l{font-size:10px;color:#888}'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f97316;color:#fff;padding:6px 8px;font-size:10px;text-align:left}'
+    +'tr:nth-child(even){background:#fafafa}@media print{.np{display:none}}</style></head><body>'
+    +'<h1>🍬 ChicleManía — Cuadre de Caja</h1>'
+    +'<p style="color:#888">Período: <b>'+datos.label+'</b> · Generado: '+new Date().toLocaleString('es-GT')+'</p>'
+    +'<div class="stats">'
+      +'<div class="stat"><div class="stat-l">TOTAL VENDIDO</div><div class="stat-v">Q'+datos.totalVentas.toFixed(2)+'</div></div>'
+      +'<div class="stat"><div class="stat-l">EFECTIVO</div><div class="stat-v" style="color:#16a34a">Q'+datos.totalEfectivo.toFixed(2)+'</div></div>'
+      +'<div class="stat"><div class="stat-l">TARJETA</div><div class="stat-v" style="color:#2563eb">Q'+datos.totalTarjeta.toFixed(2)+'</div></div>'
+    +'</div>'
+    +'<table><thead><tr><th>Fecha/Hora</th><th>Cliente</th><th style="text-align:center">Método</th><th style="text-align:right">Total Q</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +'<div class="np" style="margin-top:20px;text-align:center"><button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>'
+    +'</body></html>');
+  w.document.close();
+}
+
 
 // ════════════════════════════════════════════════════
 //  MÓDULO: METAS DE VENTAS
