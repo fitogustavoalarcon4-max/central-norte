@@ -1474,24 +1474,81 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       </div>
     </div>
 
-    <!-- MÉTODO DE PAGO -->
+    <!-- MÉTODO DE PAGO MÚLTIPLE -->
     <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:var(--txt3);display:block;margin-bottom:6px">💳 Método de pago</label>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button type="button" id="btn-pago-efectivo" onclick="setMetodoPago('efectivo')" class="btn btn-sec btn-sm" style="flex:1">💵 Efectivo</button>
-        <button type="button" id="btn-pago-tarjeta" onclick="setMetodoPago('tarjeta')" class="btn btn-sec btn-sm" style="flex:1">💳 Tarjeta</button>
-        <button type="button" id="btn-pago-transferencia" onclick="setMetodoPago('transferencia')" class="btn btn-sec btn-sm" style="flex:1">🏦 Transf.</button>
+      <div style="font-size:11px;color:var(--txt3);font-weight:600;margin-bottom:8px">💳 Métodos de pago</div>
+
+      <!-- Efectivo -->
+      <div style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:15px">💵</span>
+          <span style="font-size:13px;font-weight:600;flex:1">Efectivo</span>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="pago-chk-efectivo" checked onchange="recalcPagos()" style="width:16px;height:16px;accent-color:var(--acc)"> Incluir
+          </label>
+        </div>
+        <div id="pago-efectivo-wrap">
+          <input type="number" id="pago-monto-efectivo" min="0" step="0.01" placeholder="0.00"
+            style="background:var(--bg);border:1px solid var(--bdr2);border-radius:8px;color:var(--txt);font-size:15px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;width:100%;outline:none"
+            oninput="recalcPagos()" onclick="this.select()">
+        </div>
       </div>
-      <div id="pago-tarjeta-wrap" style="display:none">
-        <input type="text" id="conf-num-auth" placeholder="Número de autorización / voucher" style="font-size:13px;padding:8px 10px;border-color:var(--blu)">
+
+      <!-- Tarjeta -->
+      <div style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:15px">💳</span>
+          <span style="font-size:13px;font-weight:600;flex:1">Tarjeta</span>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="pago-chk-tarjeta" onchange="recalcPagos()" style="width:16px;height:16px;accent-color:var(--acc)"> Incluir
+          </label>
+        </div>
+        <div id="pago-tarjeta-wrap" style="display:none">
+          <input type="number" id="pago-monto-tarjeta" min="0" step="0.01" placeholder="0.00"
+            style="background:var(--bg);border:1px solid rgba(59,130,246,.4);border-radius:8px;color:var(--txt);font-size:15px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;width:100%;outline:none;margin-bottom:6px"
+            oninput="recalcPagos()" onclick="this.select()">
+          <input type="text" id="conf-num-auth" placeholder="N° autorización / voucher (obligatorio)"
+            style="background:var(--bg);border:1px solid rgba(59,130,246,.4);border-radius:8px;color:var(--txt);font-size:12px;padding:7px 10px;width:100%;outline:none">
+        </div>
       </div>
-      <div id="pago-transferencia-wrap" style="display:none">
-        <input type="text" id="conf-num-transf" placeholder="Número de referencia de transferencia" style="font-size:13px;padding:8px 10px;border-color:var(--blu)">
+
+      <!-- Transferencia / Depósito -->
+      <div style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:15px">🏦</span>
+          <span style="font-size:13px;font-weight:600;flex:1">Transferencia / Depósito</span>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="pago-chk-transferencia" onchange="recalcPagos()" style="width:16px;height:16px;accent-color:var(--acc)"> Incluir
+          </label>
+        </div>
+        <div id="pago-transferencia-wrap" style="display:none">
+          <input type="number" id="pago-monto-transferencia" min="0" step="0.01" placeholder="0.00"
+            style="background:var(--bg);border:1px solid rgba(168,85,247,.4);border-radius:8px;color:var(--txt);font-size:15px;font-family:'DM Mono',monospace;font-weight:700;padding:7px 10px;width:100%;outline:none;margin-bottom:6px"
+            oninput="recalcPagos()" onclick="this.select()">
+          <input type="text" id="conf-num-transf" placeholder="N° referencia de transferencia (obligatorio)"
+            style="background:var(--bg);border:1px solid rgba(168,85,247,.4);border-radius:8px;color:var(--txt);font-size:12px;padding:7px 10px;width:100%;outline:none">
+        </div>
+      </div>
+
+      <!-- Saldo -->
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="color:var(--txt3)">Total de la venta</span>
+          <span id="pago-total-venta" style="font-family:'DM Mono',monospace;font-weight:700">Q0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="color:var(--txt3)">Total pagado</span>
+          <span id="pago-total-pagado" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--grn)">Q0.00</span>
+        </div>
+        <div style="border-top:1px solid var(--bdr);padding-top:6px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700" id="pago-saldo-label">Saldo pendiente</span>
+          <span id="pago-saldo-val" style="font-family:'DM Mono',monospace;font-weight:800;font-size:16px;color:var(--yel)">Q0.00</span>
+        </div>
       </div>
       <input type="hidden" id="conf-metodo-pago" value="efectivo">
     </div>
 
-    <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px">
       <button class="btn btn-sec" style="flex:1" onclick="cerrarModal('modal-conf')">Cancelar</button>
       <button class="btn btn-primary" style="flex:2" onclick="confirmarVenta()">✓ Registrar venta</button>
 
@@ -2448,18 +2505,85 @@ function limpiarCarrito(){
 let _tipoAjuste = 'none'; // none | desc-q | desc-p | rec-p | total
 let _subtotalBase = 0;
 
-function setMetodoPago(metodo){
-  document.getElementById('conf-metodo-pago').value = metodo;
-  ['efectivo','tarjeta','transferencia'].forEach(m=>{
-    const btn = document.getElementById('btn-pago-'+m);
-    if(!btn) return;
-    btn.style.background = m===metodo ? 'rgba(249,115,22,.25)' : '';
-    btn.style.borderColor = m===metodo ? 'var(--acc)' : '';
-    btn.style.color = m===metodo ? 'var(--acc)' : '';
-  });
-  document.getElementById('pago-tarjeta-wrap').style.display = metodo==='tarjeta' ? 'block' : 'none';
-  document.getElementById('pago-transferencia-wrap').style.display = metodo==='transferencia' ? 'block' : 'none';
+// ════════════════════════════════════════════════════
+//  MULTIPAGO — efectivo + tarjeta + transferencia
+// ════════════════════════════════════════════════════
+function recalcPagos(){
+  const chkEfectivo      = document.getElementById('pago-chk-efectivo');
+  const chkTarjeta       = document.getElementById('pago-chk-tarjeta');
+  const chkTransferencia = document.getElementById('pago-chk-transferencia');
+
+  // Mostrar/ocultar campos según checkbox
+  document.getElementById('pago-efectivo-wrap').style.display      = chkEfectivo?.checked      ? 'block' : 'none';
+  document.getElementById('pago-tarjeta-wrap').style.display        = chkTarjeta?.checked        ? 'block' : 'none';
+  document.getElementById('pago-transferencia-wrap').style.display  = chkTransferencia?.checked  ? 'block' : 'none';
+
+  const montoEfectivo      = chkEfectivo?.checked      ? (parseFloat(document.getElementById('pago-monto-efectivo')?.value)||0)      : 0;
+  const montoTarjeta       = chkTarjeta?.checked        ? (parseFloat(document.getElementById('pago-monto-tarjeta')?.value)||0)        : 0;
+  const montoTransferencia = chkTransferencia?.checked  ? (parseFloat(document.getElementById('pago-monto-transferencia')?.value)||0)  : 0;
+  const totalPagado = montoEfectivo + montoTarjeta + montoTransferencia;
+
+  // Leer total de la venta desde el modal
+  const totalVentaText = document.getElementById('modal-conf-total')?.textContent || 'Q0.00';
+  const totalVenta = parseFloat(totalVentaText.replace('Q','').replace(',',''))||0;
+
+  const saldo = totalVenta - totalPagado;
+
+  const pagadoEl = document.getElementById('pago-total-pagado');
+  const saldoEl  = document.getElementById('pago-saldo-val');
+  const saldoLbl = document.getElementById('pago-saldo-label');
+
+  if(pagadoEl) pagadoEl.textContent = 'Q'+totalPagado.toFixed(2);
+  if(document.getElementById('pago-total-venta')) document.getElementById('pago-total-venta').textContent = 'Q'+totalVenta.toFixed(2);
+
+  if(saldoEl){
+    if(saldo <= 0){
+      saldoEl.textContent = saldo < 0 ? 'Q'+Math.abs(saldo).toFixed(2)+' cambio' : '✅ Pagado';
+      saldoEl.style.color = 'var(--grn)';
+      if(saldoLbl) saldoLbl.textContent = saldo < 0 ? 'Cambio al cliente' : 'Saldo';
+    } else {
+      saldoEl.textContent = 'Q'+saldo.toFixed(2);
+      saldoEl.style.color = saldo === totalVenta ? 'var(--txt3)' : 'var(--yel)';
+      if(saldoLbl) saldoLbl.textContent = 'Pendiente de pago';
+    }
+  }
+
+  // Actualizar campo legado
+  const metodos = [];
+  if(chkEfectivo?.checked && montoEfectivo>0)      metodos.push('efectivo');
+  if(chkTarjeta?.checked && montoTarjeta>0)         metodos.push('tarjeta');
+  if(chkTransferencia?.checked && montoTransferencia>0) metodos.push('transferencia');
+  const hiddenMetodo = document.getElementById('conf-metodo-pago');
+  if(hiddenMetodo) hiddenMetodo.value = metodos.join('+') || 'efectivo';
 }
+
+function setMetodoPago(metodo){
+  // Compatibilidad con código antiguo — ahora solo se usa via checkboxes
+  recalcPagos();
+}
+
+function resetPagos(totalVenta){
+  // Resetear al abrir el modal — efectivo por defecto con el total completo
+  const chkEf = document.getElementById('pago-chk-efectivo');
+  const chkTa = document.getElementById('pago-chk-tarjeta');
+  const chkTr = document.getElementById('pago-chk-transferencia');
+  if(chkEf){ chkEf.checked = true; }
+  if(chkTa){ chkTa.checked = false; }
+  if(chkTr){ chkTr.checked = false; }
+  const montoEf = document.getElementById('pago-monto-efectivo');
+  const montoTa = document.getElementById('pago-monto-tarjeta');
+  const montoTr = document.getElementById('pago-monto-transferencia');
+  if(montoEf) montoEf.value = totalVenta.toFixed(2);
+  if(montoTa) montoTa.value = '';
+  if(montoTr) montoTr.value = '';
+  const authEl = document.getElementById('conf-num-auth');
+  const transfEl = document.getElementById('conf-num-transf');
+  if(authEl) authEl.value = '';
+  if(transfEl) transfEl.value = '';
+  recalcPagos();
+}
+
+
 
 function abrirConfVenta(){
   if(!carrito.length){ toast('El carrito está vacío','err'); return; }
@@ -2480,10 +2604,10 @@ function abrirConfVenta(){
   document.getElementById('modal-conf-total').textContent = `Q${_subtotalBase.toFixed(2)}`;
   document.getElementById('modal-conf-total').style.color = 'var(--grn)';
 
-  // Reset método de pago
-  document.getElementById('conf-num-auth').value = '';
-  document.getElementById('conf-num-transf').value = '';
-  setMetodoPago('efectivo');
+  // Reset método de pago multipago
+  const adjTotalEl2 = document.getElementById('adj-total-val');
+  const totalParaPagos = parseFloat(adjTotalEl2?.value)||_subtotalBase;
+  resetPagos(totalParaPagos);
 
   // Precargar total editable con el subtotal
   const adjTotalEl = document.getElementById('adj-total-val');
@@ -2621,14 +2745,13 @@ function recalcularTotal(){
   document.getElementById('adj-motivo-wrap').style.display = hayAjuste ? 'block' : 'none';
 
   // Guardar en campo legacy para confirmarVenta
-  document.getElementById('conf-descuento').value = (sub - total).toFixed(2); // positivo=descuento, negativo=recargo
+  document.getElementById('conf-descuento').value = (sub - total).toFixed(2);
+  // Actualizar saldo de pagos con el nuevo total
+  setTimeout(recalcPagos, 10);
 }
 
 // Mantener compatibilidad con código anterior
 function actualizarTotalModal(){ recalcularTotal(); }
-
-
-
 function confirmarVenta(){
   const ts = ahora();
   const motivoDesc = document.getElementById('conf-motivo-desc')?.value.trim()||'';
@@ -2672,16 +2795,36 @@ function confirmarVenta(){
   const cliente = clienteEl.value.trim() || 'Consumidor Final';
   const nit = document.getElementById('conf-nit')?.value.trim() || 'CF';
   const telefono = document.getElementById('conf-telefono')?.value.trim() || '';
-  const metodoPago = document.getElementById('conf-metodo-pago')?.value || 'efectivo';
-  const numAuth = document.getElementById('conf-num-auth')?.value.trim() || '';
-  const numTransf = document.getElementById('conf-num-transf')?.value.trim() || '';
 
-  if(metodoPago === 'tarjeta' && !numAuth){
-    toast('Ingresá el número de autorización del voucher','err'); return;
+  // Leer multipago
+  const chkEf = document.getElementById('pago-chk-efectivo')?.checked;
+  const chkTa = document.getElementById('pago-chk-tarjeta')?.checked;
+  const chkTr = document.getElementById('pago-chk-transferencia')?.checked;
+  const montoEfectivo      = chkEf ? (parseFloat(document.getElementById('pago-monto-efectivo')?.value)||0) : 0;
+  const montoTarjeta       = chkTa ? (parseFloat(document.getElementById('pago-monto-tarjeta')?.value)||0)  : 0;
+  const montoTransferencia = chkTr ? (parseFloat(document.getElementById('pago-monto-transferencia')?.value)||0) : 0;
+  const numAuth  = document.getElementById('conf-num-auth')?.value.trim()  || '';
+  const numTransf= document.getElementById('conf-num-transf')?.value.trim()|| '';
+
+  // Validaciones multipago
+  if(chkTa && montoTarjeta > 0 && !numAuth){
+    toast('Ingresá el número de autorización del voucher de tarjeta','err'); return;
   }
-  if(metodoPago === 'transferencia' && !numTransf){
+  if(chkTr && montoTransferencia > 0 && !numTransf){
     toast('Ingresá el número de referencia de la transferencia','err'); return;
   }
+
+  // Construir resumen de métodos de pago
+  const pagos = [];
+  if(montoEfectivo > 0)      pagos.push({ metodo:'efectivo',      monto:montoEfectivo,      ref:'' });
+  if(montoTarjeta > 0)       pagos.push({ metodo:'tarjeta',       monto:montoTarjeta,       ref:numAuth });
+  if(montoTransferencia > 0) pagos.push({ metodo:'transferencia', monto:montoTransferencia, ref:numTransf });
+  if(!pagos.length) pagos.push({ metodo:'efectivo', monto:total, ref:'' });
+
+  const metodoPago = pagos.map(p=>p.metodo).join('+');
+  const totalPagado = pagos.reduce((s,p)=>s+p.monto,0);
+  const cambio = totalPagado - total;
+
   const venta = {
     id: 'VTA-' + Date.now(),
     timestamp: ts,
@@ -2695,6 +2838,10 @@ function confirmarVenta(){
     tipoAjuste: _tipoAjuste,
     tipoAjusteLabel,
     metodoPago,
+    pagos,         // detalle multipago
+    totalPagado,
+    cambio,
+    numAuth,
     numAuth,
     numTransf,
     items: carrito.map(i => ({
@@ -2748,7 +2895,11 @@ function confirmarVenta(){
     alertarStockNegativoAdmin(prodsNegativos);
     setTimeout(()=>toast(`🔴 STOCK NEGATIVO — Pedí reposición a bodega`, 'err'), 200);
   } else {
-    toast(`✅ Venta registrada Q${total.toFixed(2)}${tipoAjusteLabel?' — '+tipoAjusteLabel:''}`, 'ok');
+    const pagoLabel = pagos.map(p=>{
+      const ico = p.metodo==='efectivo'?'💵':p.metodo==='tarjeta'?'💳':'🏦';
+      return ico+' Q'+p.monto.toFixed(2);
+    }).join(' + ');
+    toast(`✅ Q${total.toFixed(2)} · ${pagoLabel}${cambio>0?' · Cambio: Q'+cambio.toFixed(2):''}`, 'ok');
   }
   renderStock();
   sincronizarVenta(venta);
@@ -6058,57 +6209,265 @@ function calcularDiferenciaCaja(){
 
 function cerrarCaja(){
   const efectivo = parseFloat(document.getElementById('caja-efectivo').value)||0;
-  const fondo = parseFloat(document.getElementById('caja-fondo').value)||0;
-  const obs = document.getElementById('caja-obs').value.trim();
+  const fondo    = parseFloat(document.getElementById('caja-fondo').value)||0;
+  const obs      = document.getElementById('caja-obs').value.trim();
   if(!efectivo && !fondo){ toast('Ingresá el efectivo en caja','err'); return; }
 
-  const datos = _cajaUltDatos || getCajaRango();
-  const totalSistema = datos.totalEfectivo || 0;
-  const totalGeneral = datos.totalVentas || 0;
-  const efectivoNeto = efectivo - fondo;
-  const diferencia = efectivoNeto - totalSistema;
+  const datos       = _cajaUltDatos || getCajaRango();
+  const totalSistema= datos.totalEfectivo || 0;
+  const totalGeneral= datos.totalVentas   || 0;
+  const efectivoNeto= efectivo - fondo;
+  const diferencia  = efectivoNeto - totalSistema;
+  const diffLabel   = diferencia===0 ? '✅ Cuadra perfectamente'
+                    : diferencia>0   ? '📈 Sobrante Q'+Math.abs(diferencia).toFixed(2)
+                    :                  '📉 Faltante Q'+Math.abs(diferencia).toFixed(2);
 
   if(!db.cierresCaja) db.cierresCaja = [];
-  db.cierresCaja.push({
-    id:'CAJA-'+Date.now(), timestamp:ahora(), fecha:hoy(),
+  const cierre = {
+    id: 'CAJA-'+Date.now(), timestamp: ahora(), fecha: hoy(),
     periodoDesde: datos.desde, periodoHasta: datos.hasta, periodoLabel: datos.label,
     totalSistema, totalGeneral,
-    totalTarjeta: datos.totalTarjeta||0, totalTransferencia: datos.totalTransferencia||0,
+    totalTarjeta:       datos.totalTarjeta||0,
+    totalTransferencia: datos.totalTransferencia||0,
     efectivo, fondo, efectivoNeto, diferencia,
     obs, ejecutadoPor: _rolActual==='admin'?'Admin':'Rosmery Archila',
     nVentas: datos.nVentas||0,
-  });
+    ventas:  datos.ventas||[],     // snapshot de ventas del período para el reporte
+  };
+  db.cierresCaja.push(cierre);
   saveDB();
+
+  // Limpiar campos
   document.getElementById('caja-efectivo').value='';
   document.getElementById('caja-fondo').value='';
   document.getElementById('caja-obs').value='';
-  document.getElementById('caja-diferencia').innerHTML = '<span style="color:var(--txt3)">Ingresá el efectivo para ver la diferencia</span>';
+  document.getElementById('caja-diferencia').innerHTML='<span style="color:var(--txt3)">Ingresá el efectivo para ver la diferencia</span>';
   renderCajaHistorial();
-  toast('✅ Cierre de caja guardado — ' + (diferencia===0?'Cuadra':diferencia>0?'Sobrante Q'+Math.abs(diferencia).toFixed(2):'Faltante Q'+Math.abs(diferencia).toFixed(2)));
+
+  // Modal de impresión post-cierre
+  _cierreParaImprimir = cierre;
+  abrirModalImpresionCierre(cierre, diffLabel);
+}
+
+let _cierreParaImprimir = null;
+
+function abrirModalImpresionCierre(c, diffLabel){
+  const color = c.diferencia===0?'var(--grn)':c.diferencia>0?'var(--blu)':'var(--red)';
+  // Crear modal dinámico si no existe
+  let modal = document.getElementById('modal-cierre-ok');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'modal-cierre-ok';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:380px;text-align:center">
+      <div style="font-size:48px;margin-bottom:10px">✅</div>
+      <div class="modal-title">Cierre guardado</div>
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:6px">${c.periodoLabel}</div>
+      <div style="font-size:13px;color:var(--txt3);margin-bottom:4px">${fmtFecha(c.timestamp)} · ${fmtHora(c.timestamp)}</div>
+      <div style="font-size:13px;color:var(--txt3);margin-bottom:4px">${c.nVentas} ventas · Q${c.totalGeneral.toFixed(2)} total</div>
+      <div style="font-size:16px;font-weight:800;color:${color};margin:10px 0">${diffLabel}</div>
+
+      <div style="font-size:13px;font-weight:600;color:var(--txt);margin:16px 0 10px">¿Querés imprimir el reporte ahora?</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-success" style="flex:1" onclick="imprimirCierreExcel('${c.id}')">📊 Excel</button>
+        <button class="btn btn-sec" style="flex:1" onclick="imprimirCierrePDF('${c.id}')">🖨️ PDF</button>
+      </div>
+      <button class="btn btn-sec btn-sm btn-full" onclick="cerrarModal('modal-cierre-ok')">
+        No, guardar solo en historial
+      </button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function imprimirCierreExcel(cierreId){
+  const c = db.cierresCaja?.find(x=>x.id===cierreId);
+  if(!c){ toast('Cierre no encontrado','err'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Hoja resumen
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    'Fecha cierre':   fmtFecha(c.timestamp)+' '+fmtHora(c.timestamp),
+    'Período':        c.periodoLabel,
+    'Ventas activas': c.nVentas,
+    'Total ventas Q': c.totalGeneral.toFixed(2),
+    'Efectivo Q':     c.totalSistema.toFixed(2),
+    'Tarjeta Q':      (c.totalTarjeta||0).toFixed(2),
+    'Transferencia Q':(c.totalTransferencia||0).toFixed(2),
+    'Efectivo físico Q': c.efectivoNeto.toFixed(2),
+    'Diferencia Q':   c.diferencia.toFixed(2),
+    'Estado':         c.diferencia===0?'Cuadra':c.diferencia>0?'Sobrante':'Faltante',
+    'Cerrado por':    c.ejecutadoPor,
+    'Observaciones':  c.obs||'',
+  }]), 'Resumen cierre');
+
+  // Hoja detalle de ventas del período
+  if(c.ventas?.length){
+    const detalle = [];
+    c.ventas.forEach(v=>{
+      v.items.forEach(i=>{
+        detalle.push({
+          'Fecha': fmtFecha(v.timestamp), 'Hora': fmtHora(v.timestamp),
+          'Venta': v.id, 'Cliente': v.cliente||'CF', 'NIT': v.nit||'CF',
+          'Producto': i.nombre, 'Cant.': i.cant, 'Precio Q': i.precio,
+          'Subtotal Q': i.subtotal,
+          'Método pago': v.metodoPago||'efectivo',
+          'Total venta Q': v.total,
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle ventas');
+  }
+
+  XLSX.writeFile(wb, 'Cierre_Caja_'+c.fecha+'_'+(c.id.slice(-6))+'.xlsx');
+  toast('✅ Excel descargado');
+}
+
+function imprimirCierrePDF(cierreId){
+  const c = db.cierresCaja?.find(x=>x.id===cierreId);
+  if(!c){ toast('Cierre no encontrado','err'); return; }
+
+  const colorDif = c.diferencia===0?'#16a34a':c.diferencia>0?'#2563eb':'#dc2626';
+  const labelDif = c.diferencia===0?'✅ Cuadra perfectamente'
+                 : c.diferencia>0  ?'📈 Sobrante Q'+Math.abs(c.diferencia).toFixed(2)
+                 :                   '📉 Faltante Q'+Math.abs(c.diferencia).toFixed(2);
+
+  const filas = (c.ventas||[]).map(v=>`<tr>
+    <td style="padding:5px 8px;font-size:10px">${fmtFecha(v.timestamp)} ${fmtHora(v.timestamp)}</td>
+    <td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}</td>
+    <td style="padding:5px 8px;font-size:10px">
+      ${(v.pagos||[{metodo:v.metodoPago||'efectivo',monto:v.total}]).map(p=>{
+        const ico = p.metodo==='efectivo'?'💵':p.metodo==='tarjeta'?'💳':'🏦';
+        return ico+' Q'+p.monto.toFixed(2);
+      }).join(', ')}
+    </td>
+    <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700;color:#16a34a">Q${v.total.toFixed(2)}</td>
+  </tr>`).join('');
+
+  const w = window.open('','_blank','width=780,height=750');
+  w.document.write(`<!DOCTYPE html><html><head><title>Cierre de Caja ${c.fecha}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;padding:24px;color:#111;font-size:12px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f97316;padding-bottom:12px;margin-bottom:16px}
+    .logo{font-size:28px}
+    .empresa{font-size:17px;font-weight:800;color:#f97316}
+    h2{color:#f97316;font-size:14px;margin:16px 0 8px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+    .box{background:#fff8f0;border:1px solid #fed7aa;border-radius:8px;padding:10px;text-align:center}
+    .box-v{font-size:16px;font-weight:800;color:#f97316}
+    .box-l{font-size:10px;color:#888;margin-bottom:2px}
+    .dif{font-size:20px;font-weight:800;color:${colorDif};text-align:center;
+         background:${c.diferencia===0?'#f0fdf4':c.diferencia>0?'#eff6ff':'#fef2f2'};
+         border:1px solid ${colorDif+'44'};border-radius:8px;padding:12px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#f97316;color:#fff;padding:7px 8px;font-size:10px;text-align:left}
+    tr:nth-child(even){background:#fafafa}
+    .footer{text-align:center;font-size:10px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:10px}
+    .firma{display:flex;gap:40px;margin-top:24px}
+    .firma-box{flex:1;border-top:1px solid #333;text-align:center;padding-top:6px;font-size:10px;color:#666}
+    @media print{.np{display:none}}
+  </style>
+  </head><body>
+  <div class="header">
+    <div>
+      <div class="logo">🍬</div>
+      <div class="empresa">ChicleManía S.A.</div>
+      <div style="font-size:10px;color:#888">NIT: 12044610-3 · Central Norte</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:14px;font-weight:800">REPORTE DE CIERRE DE CAJA</div>
+      <div style="font-size:11px;color:#888">Período: ${c.periodoLabel}</div>
+      <div style="font-size:11px;color:#888">Cerrado: ${fmtFecha(c.timestamp)} ${fmtHora(c.timestamp)}</div>
+      <div style="font-size:11px;color:#888">Por: ${c.ejecutadoPor}</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box"><div class="box-l">TOTAL VENTAS</div><div class="box-v">Q${c.totalGeneral.toFixed(2)}</div><div style="font-size:10px;color:#888">${c.nVentas} transacciones</div></div>
+    <div class="box"><div class="box-l">EFECTIVO</div><div class="box-v" style="color:#16a34a">Q${c.totalSistema.toFixed(2)}</div></div>
+    <div class="box"><div class="box-l">TARJETA</div><div class="box-v" style="color:#2563eb">Q${(c.totalTarjeta||0).toFixed(2)}</div></div>
+    <div class="box"><div class="box-l">TRANSFERENCIA</div><div class="box-v" style="color:#9333ea">Q${(c.totalTransferencia||0).toFixed(2)}</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="box"><div class="box-l">EFECTIVO EN CAJA</div><div class="box-v">Q${c.efectivo.toFixed(2)}</div></div>
+    <div class="box"><div class="box-l">FONDO INICIAL</div><div class="box-v">Q${c.fondo.toFixed(2)}</div></div>
+    <div class="box"><div class="box-l">EFECTIVO NETO</div><div class="box-v">Q${c.efectivoNeto.toFixed(2)}</div></div>
+    <div class="box"><div class="box-l">DIFERENCIA</div><div class="box-v" style="color:${colorDif}">Q${c.diferencia.toFixed(2)}</div></div>
+  </div>
+
+  <div class="dif">${labelDif}</div>
+
+  ${c.obs?`<div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:16px;font-size:11px">💬 <b>Observaciones:</b> ${c.obs}</div>`:''}
+
+  <h2>📋 Detalle de ventas del período</h2>
+  <table>
+    <thead><tr>
+      <th>Fecha/Hora</th><th>Cliente</th><th>Método pago</th><th style="text-align:right">Total Q</th>
+    </tr></thead>
+    <tbody>${filas||'<tr><td colspan="4" style="padding:10px;text-align:center;color:#888">Sin ventas en este período</td></tr>'}</tbody>
+  </table>
+
+  <div class="firma">
+    <div class="firma-box">Firma Vendedor: Rosmery Archila</div>
+    <div class="firma-box">Firma Administrador</div>
+  </div>
+
+  <div class="footer">ChicleManía S.A. · NIT 12044610-3 · Central Norte · Reporte generado: ${new Date().toLocaleString('es-GT')}</div>
+
+  <div class="np" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+  </div>
+  </body></html>`);
+  w.document.close();
+  cerrarModal('modal-cierre-ok');
 }
 
 function renderCajaHistorial(){
   if(!db.cierresCaja) db.cierresCaja=[];
   const el = document.getElementById('caja-historial');
   if(!el) return;
-  const lista = [...db.cierresCaja].reverse().slice(0,20);
-  if(!lista.length){ el.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-msg">Sin cierres guardados aún</div></div>'; return; }
+  const lista = [...db.cierresCaja].reverse().slice(0,30);
+  if(!lista.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-msg">Sin cierres guardados aún</div></div>';
+    return;
+  }
   el.innerHTML = lista.map(c=>{
     const color = c.diferencia===0?'var(--grn)':c.diferencia>0?'var(--blu)':'var(--red)';
-    const label = c.diferencia===0?'✅ Cuadra':c.diferencia>0?('📈 +Q'+Math.abs(c.diferencia).toFixed(2)):('📉 -Q'+Math.abs(c.diferencia).toFixed(2));
+    const label = c.diferencia===0?'✅ Cuadra'
+                : c.diferencia>0  ?'📈 +Q'+Math.abs(c.diferencia).toFixed(2)
+                :                  '📉 -Q'+Math.abs(c.diferencia).toFixed(2);
     return '<div class="admin-card" style="margin-bottom:8px">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
-        + '<div>'
-          + '<div style="font-weight:700">'+fmtFecha(c.timestamp)+' <span style="font-weight:400;font-size:12px;color:var(--txt3)">'+fmtHora(c.timestamp)+'</span></div>'
-          + '<div style="font-size:11px;color:var(--txt3);margin-top:3px">'+(c.periodoLabel||'')+'</div>'
-          + '<div style="font-size:11px;color:var(--txt3);margin-top:3px">Efectivo sistema: Q'+c.totalSistema.toFixed(2)+' · Tarjeta: Q'+(c.totalTarjeta||0).toFixed(2)+' · '+c.nVentas+' ventas · '+c.ejecutadoPor+'</div>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-weight:700;font-size:13px">📋 Cierre — '+fmtFecha(c.timestamp)
+            + ' <span style="font-weight:400;font-size:11px;color:var(--txt3)">'+fmtHora(c.timestamp)+'</span></div>'
+          + '<div style="font-size:11px;color:var(--txt3);margin-top:2px">'+(c.periodoLabel||'')+'</div>'
+          + '<div style="font-size:11px;color:var(--txt3);margin-top:2px">'
+            + c.nVentas+' ventas · Q'+c.totalGeneral.toFixed(2)
+            + ' · 💵Q'+c.totalSistema.toFixed(2)
+            + (c.totalTarjeta?' · 💳Q'+(c.totalTarjeta||0).toFixed(2):'')
+            + (c.totalTransferencia?' · 🏦Q'+(c.totalTransferencia||0).toFixed(2):'')
+            + ' · '+c.ejecutadoPor
+          + '</div>'
           + (c.obs?'<div style="font-size:11px;color:var(--txt2);margin-top:2px">💬 '+c.obs+'</div>':'')
         + '</div>'
-        + '<div style="font-size:16px;font-weight:800;color:'+color+';flex-shrink:0">'+label+'</div>'
+        + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
+          + '<div style="font-size:15px;font-weight:800;color:'+color+'">'+label+'</div>'
+          + '<div style="display:flex;gap:5px">'
+            + '<button onclick="imprimirCierreExcel(\''+c.id+'\')" class="btn btn-success btn-sm" style="font-size:11px;padding:4px 8px">📊 Excel</button>'
+            + '<button onclick="imprimirCierrePDF(\''+c.id+'\')" class="btn btn-sec btn-sm" style="font-size:11px;padding:4px 8px">🖨️ PDF</button>'
+          + '</div>'
+        + '</div>'
       + '</div>'
     + '</div>';
   }).join('');
 }
+
+
 
 function exportarCajaExcel(){
   const datos = _cajaUltDatos || getCajaRango();
