@@ -1063,6 +1063,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div id="prueba-status" style="font-size:12px;margin-top:10px;color:var(--txt3)"></div>
     </div>
 
+    <!-- RECALCULAR STOCK -->
+    <div class="admin-card" style="margin-bottom:14px;border-color:rgba(59,130,246,.3)">
+      <div class="admin-card-title" style="color:var(--blu)">🔧 Recalcular stock <span class="admin-lock">🔐 Admin</span></div>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:10px">
+        Si el stock quedó incorrecto por anulaciones múltiples u otros errores, usá esto para recalcularlo desde cero — sumando todos los ingresos de bodega y restando solo las ventas activas (las anuladas no se cuentan). El catálogo y el historial no se tocan.
+      </div>
+      <button class="btn btn-sm" style="background:rgba(59,130,246,.15);color:var(--blu);border:1px solid rgba(59,130,246,.3)" onclick="recalcularStockDesdeHistorial()">
+        🔧 Recalcular stock desde historial
+      </button>
+    </div>
+
     <!-- REINICIO TOTAL PARA EMPEZAR EL MES DE PRUEBA REAL -->
     <div class="admin-card" style="margin-bottom:14px;border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04)">
       <div class="admin-card-title" style="color:var(--red)">🔴 Reinicio total del sistema <span class="admin-lock">🔐 Admin</span></div>
@@ -2874,9 +2885,12 @@ function renderHistorial(filtro){
   }
   // 'todo' no filtra
 
-  const totalDia = ventas.reduce((s,v)=>s+v.total,0);
-  const nTrans = ventas.length;
-  const nUds = ventas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  // Totales solo de ventas ACTIVAS (no anuladas)
+  const ventasActivas = ventas.filter(v => !v.anulada);
+  const totalDia = ventasActivas.reduce((s,v)=>s+v.total,0);
+  const nTrans = ventasActivas.length;
+  const nUds = ventasActivas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  const nAnuladas = ventas.length - ventasActivas.length;
 
   const subtitulos = {
     hoy:'Ventas de hoy', semana:'Últimos 7 días', mes:'Este mes',
@@ -2885,8 +2899,8 @@ function renderHistorial(filtro){
   };
   document.getElementById('hist-sub').textContent = subtitulos[filtro] || 'Ventas';
   document.getElementById('hist-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Ventas en Q</div><div class="stat-val" style="color:var(--grn)">Q${totalDia.toLocaleString('es-GT',{minimumFractionDigits:2})}</div><div class="stat-note">${filtro==='hoy'?'hoy':filtro==='semana'?'7 días':'total'}</div></div>
-    <div class="stat-card"><div class="stat-label">Transacciones</div><div class="stat-val">${nTrans}</div><div class="stat-note">ventas registradas</div></div>
+    <div class="stat-card"><div class="stat-label">Ventas en Q</div><div class="stat-val" style="color:var(--grn)">Q${totalDia.toLocaleString('es-GT',{minimumFractionDigits:2})}</div><div class="stat-note">${filtro==='hoy'?'hoy':filtro==='semana'?'7 días':'total'}${nAnuladas>0?' · '+nAnuladas+' anulada'+(nAnuladas!==1?'s':''):''}</div></div>
+    <div class="stat-card"><div class="stat-label">Transacciones</div><div class="stat-val">${nTrans}</div><div class="stat-note">ventas activas</div></div>
     <div class="stat-card"><div class="stat-label">Unidades vendidas</div><div class="stat-val" style="color:var(--acc)">${nUds}</div><div class="stat-note">productos despachados</div></div>`;
 
   if(!ventas.length){
@@ -2908,22 +2922,27 @@ function renderHistorial(filtro){
       <tbody>${ventas.map(v => {
         const esAnulada = v.anulada === true;
         const puedeAnular = !esAnulada && puedeAnularVenta(v);
-        return `<tr style="opacity:${esAnulada?'.45':'1'};background:${esAnulada?'rgba(239,68,68,.04)':''}">
+        return `<tr style="background:${esAnulada?'rgba(239,68,68,.06)':''}">
           <td>
-            <div style="font-weight:600;font-size:12px">${fmtFecha(v.timestamp)}</div>
-            <div style="color:var(--acc);font-size:11px;font-family:'DM Mono',monospace">${fmtHora(v.timestamp)}</div>
+            <div style="font-weight:600;font-size:12px;${esAnulada?'text-decoration:line-through;color:var(--txt3)':''}">${fmtFecha(v.timestamp)}</div>
+            <div style="color:${esAnulada?'var(--txt3)':'var(--acc)'};font-size:11px;font-family:'DM Mono',monospace">${fmtHora(v.timestamp)}</div>
           </td>
           <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--txt3)">${v.id}</td>
-          <td style="font-size:12px">${v.cliente||'—'}</td>
-          <td style="font-size:11px;color:var(--txt2)">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,18)}`).join(', ')}</td>
-          <td style="font-family:'DM Mono',monospace;font-weight:700;color:${esAnulada?'var(--txt3)':'var(--grn)'}${esAnulada?';text-decoration:line-through':''}">Q${v.total.toFixed(2)}</td>
+          <td style="font-size:12px;${esAnulada?'text-decoration:line-through;color:var(--txt3)':''}">${v.cliente||'—'}</td>
+          <td style="font-size:11px;${esAnulada?'text-decoration:line-through;color:var(--txt3)':'color:var(--txt2)'}">
+            ${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,18)}`).join(', ')}
+          </td>
+          <td style="font-family:'DM Mono',monospace;font-weight:700;${esAnulada?'text-decoration:line-through;color:var(--red)':'color:var(--grn)'}">
+            Q${v.total.toFixed(2)}
+            ${esAnulada?'<div style="font-size:9px;color:var(--red);font-weight:600;text-decoration:none">🚫 ANULADA</div>':''}
+          </td>
           <td>${esAnulada
-            ? `<span class="badge badge-red">🚫 Anulada</span>`
+            ? `<span class="badge badge-red" style="font-size:9px">🚫 Anulada</span>`
             : `<span class="badge ${v.vendedor==='admin'?'badge-blu':'badge-acc'}">${v.vendedor==='admin'?'Admin':'Vendedor'}</span>`}
           </td>
           <td>${puedeAnular
             ? `<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button><button class="btn btn-danger btn-sm" onclick="abrirAnularVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🚫</button></div>`
-            : (esAnulada ? `<div style="font-size:10px;color:var(--txt3)">Anulada<br>${fmtFecha(v.anuladaEn||'')}</div>` : `<button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button>`)}
+            : (esAnulada ? `<div style="font-size:10px;color:var(--txt3)">${fmtFecha(v.anuladaEn||'')}<br><span style="color:var(--red)">${v.anuladaPor||''}</span></div>` : `<button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button>`)}
           </td>
         </tr>`;
       }).join('')}</tbody>
@@ -2931,6 +2950,7 @@ function renderHistorial(filtro){
 }
 
 function puedeAnularVenta(v){
+  if(v.anulada) return false; // ya está anulada
   const limite = new Date();
   limite.setMonth(limite.getMonth() - 1);
   return new Date(v.timestamp) >= limite;
@@ -3005,22 +3025,36 @@ function ejecutarAnulacion(){
   if(!motivo){ toast('Escribí el motivo de la anulación','err'); return; }
   const v = db.ventas.find(x=>x.id===_anularVentaId);
   if(!v){ toast('Venta no encontrada','err'); return; }
+
+  // Doble protección: si ya está anulada O si ya se devolvió el stock, no hacer nada más
+  if(v.anulada){
+    toast('Esta venta ya fue anulada anteriormente','err');
+    cerrarModal('modal-anular');
+    return;
+  }
+
   const ts = ahora();
-  // Backup automático antes de anular
   backupVentaAntes(v);
+
   v.anulada = true;
   v.anuladaEn = ts;
   v.anuladaPor = _rolActual === 'admin' ? 'Admin' : 'Rosmery Archila (aut. Admin)';
   v.motivoAnulacion = motivo;
+  v.stockDevuelto = true; // flag para evitar doble devolución
+
+  // Devolver stock — UNA SOLA VEZ, protegido por v.anulada arriba
   v.items.forEach(item => {
     const prod = db.productos.find(x=>x.id===item.prodId);
     if(prod){ prod.stock = prod.stock + (item.cantUds || item.cant); }
   });
+
   db.movimientos.push({
     id: 'MOV-ANUL-'+Date.now(), timestamp: ts, fecha: hoy(), tipo: 'anulacion',
-    ref: v.id, detalle: `ANULACIÓN ${v.id}: ${v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', ')} · Motivo: ${motivo}`,
+    ref: v.id,
+    detalle: `ANULACIÓN ${v.id}: ${v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', ')} · Motivo: ${motivo}`,
     total: v.total, ejecutadoPor: v.anuladaPor, motivo,
   });
+
   saveDB();
   cerrarModal('modal-anular');
   _anularVentaId = null;
@@ -3028,7 +3062,7 @@ function ejecutarAnulacion(){
   renderStock();
   poblarSelects();
   if(_rolActual === 'admin') renderResumenAdmin();
-  toast(`✅ Venta ${v.id} anulada — stock devuelto`, 'ok');
+  toast(`✅ Venta ${v.id} anulada — stock devuelto correctamente`, 'ok');
 }
 
 function exportarHistorial(){
@@ -3743,9 +3777,10 @@ function cambiarPins(){
 // ════════════════════════════════════════════════════
 function renderResumenAdmin(){
   const hoyStr = hoy();
-  const ventasHoy = db.ventas.filter(v=>v.fecha===hoyStr);
+  const ventasHoy = db.ventas.filter(v=>v.fecha===hoyStr && !v.anulada);
   const totalHoy = ventasHoy.reduce((s,v)=>s+v.total,0);
   const udsHoy = ventasHoy.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
+  const anuladasHoy = db.ventas.filter(v=>v.fecha===hoyStr && v.anulada).length;
   const movsHoy = db.movimientos.filter(m=>m.fecha===hoyStr&&m.tipo!=='venta');
   const productosNuevos = db.movimientos.filter(m=>m.tipo==='producto_nuevo').map(m=>({
     nombre:m.prodNombre, motivo:m.motivo, ts:m.timestamp
@@ -3758,7 +3793,7 @@ function renderResumenAdmin(){
       <div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">
         <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Ventas hoy</div>
         <div style="font-size:22px;font-weight:800;color:var(--grn);font-family:'DM Mono',monospace">Q${totalHoy.toFixed(2)}</div>
-        <div style="font-size:11px;color:var(--txt3)">${ventasHoy.length} transacciones · ${udsHoy} uds</div>
+        <div style="font-size:11px;color:var(--txt3)">${ventasHoy.length} transacciones · ${udsHoy} uds${anuladasHoy>0?' · <span style="color:var(--red)">'+anuladasHoy+' anulada'+(anuladasHoy!==1?'s':'')+'</span>':''}</div>
       </div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center">
         <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Movimientos stock hoy</div>
@@ -3888,6 +3923,55 @@ function soloLimpiarVentas(){
 //  REINICIO TOTAL — borra ventas, clientes, stock, caja,
 //  pedidos bodega, pedidos sugeridos, auditorías. NO toca el catálogo.
 // ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  CORRECTOR DE STOCK — recalcula desde pedidos y ventas
+//  Útil cuando el stock quedó mal por anulaciones múltiples
+// ════════════════════════════════════════════════════
+function recalcularStockDesdeHistorial(){
+  if(!confirm(
+    '⚠️ RECALCULAR STOCK\n\n' +
+    'Esto va a recalcular el stock de TODOS los productos\n' +
+    'partiendo de cero y sumando/restando todos los movimientos\n' +
+    'de ingreso y ventas activas (excluyendo anuladas).\n\n' +
+    'Útil para corregir el stock que quedó mal por\n' +
+    'anulaciones múltiples.\n\n' +
+    '¿Continuar?'
+  )) return;
+
+  // 1. Resetear stock a 0
+  db.productos.forEach(p => { p.stock = 0; });
+
+  // 2. Sumar todos los ingresos de pedidos bodega
+  (db.pedidos||[]).forEach(ped => {
+    if(ped.tipo === 'ingreso'){
+      ped.items.forEach(item => {
+        const prod = db.productos.find(p=>p.id===item.prodId);
+        if(prod) prod.stock += (item.cantUds || item.cant);
+      });
+    } else if(ped.tipo === 'salida'){
+      ped.items.forEach(item => {
+        const prod = db.productos.find(p=>p.id===item.prodId);
+        if(prod) prod.stock -= (item.cantUds || item.cant);
+      });
+    }
+  });
+
+  // 3. Restar solo ventas ACTIVAS (no anuladas)
+  (db.ventas||[]).filter(v=>!v.anulada).forEach(v => {
+    v.items.forEach(item => {
+      const prod = db.productos.find(p=>p.id===item.prodId);
+      if(prod) prod.stock -= (item.cantUds || item.cant);
+    });
+  });
+
+  saveDB();
+  renderStock();
+  renderResumenAdmin();
+  toast('✅ Stock recalculado correctamente desde el historial', 'ok');
+  document.getElementById('reinicio-status').innerHTML =
+    '✅ <b>Stock recalculado.</b> Ahora refleja los ingresos de bodega menos las ventas activas.';
+}
+
 function reinicioTotalSistema(){
   const primeraConfirmacion = confirm(
     '⚠️ REINICIO TOTAL DEL SISTEMA\n\n' +
