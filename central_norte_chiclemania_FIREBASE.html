@@ -246,7 +246,7 @@
 </select>
 </div>
 <div class="fgr">
-<label>Cantidad</label>
+<label id="ped-cant-label">Cantidad</label>
 <input type="number" id="ped-cant" min="1" value="1" placeholder="0">
 </div>
 <div class="fgr">
@@ -255,6 +255,7 @@
 </div>
 </div>
 <div id="ped-prod-info" style="font-size:12px;color:var(--txt3);min-height:18px;margin-top:4px"></div>
+<div id="ped-unidad-wrap"></div>
 </div>
 <div id="ped-lista-wrap" style="display:none">
 <div class="venta-form" style="margin-bottom:14px">
@@ -4156,9 +4157,75 @@ function onPedProdChange(){
 const pid = document.getElementById('ped-prod').value;
 const p = db.productos.find(x=>x.id===pid);
 const info = document.getElementById('ped-prod-info');
-if(!p){ if(info) info.textContent=''; return; }
-info.innerHTML = `${p.emoji} <b>${p.nombre}</b> · Stock actual: <b style="color:var(--grn)">${p.stock} uds</b>`;
+if(!p){ if(info) info.textContent=''; resetUnidadPedido(); return; }
+const esPelota = p.cat==='pelotas';
+const esChicleDulce = p.cat==='chicles' || p.cat==='dulces';
+// Mostrar stock actual
+let stockLabel = '';
+if(esPelota) stockLabel = `⚽ ${labelPelotas(p.stock)} (${p.stock} uds total)`;
+else stockLabel = `${p.stock} uds`;
+info.innerHTML = `${p.emoji} <b>${p.nombre}</b> · Stock actual: <b style="color:${p.stock<=0?'var(--red)':'var(--grn)'}">${stockLabel}</b>`;
+// Selector de unidad para chicles/dulces
+const unidadWrap = document.getElementById('ped-unidad-wrap');
+const cantLabel = document.getElementById('ped-cant-label');
+if(unidadWrap){
+if(esPelota){
+unidadWrap.innerHTML = `<div style="font-size:11px;color:var(--txt3);margin-top:6px">Ingresá en <b>bolsas (300 uds c/u)</b> · 1 caja = 2000 uds = 6 bolsas completas</div>`;
+if(cantLabel) cantLabel.textContent = 'Bolsas (300 uds c/u)';
+} else if(esChicleDulce){
+unidadWrap.innerHTML = `
+<div style="margin-top:8px">
+<div style="font-size:11px;color:var(--txt3);margin-bottom:6px">¿En qué unidad vas a ingresar?</div>
+<div style="display:flex;gap:6px">
+<button type="button" id="btn-ped-bolsa" onclick="setUnidadPedido('bolsa')"
+class="btn btn-primary btn-sm" style="flex:1">📦 Bolsas</button>
+<button type="button" id="btn-ped-unidad" onclick="setUnidadPedido('unidad')"
+class="btn btn-sec btn-sm" style="flex:1">🔢 Unidades sueltas</button>
+</div>
+<div id="ped-unidad-info" style="font-size:11px;color:var(--acc);margin-top:6px"></div>
+</div>`;
+setUnidadPedido('bolsa'); // por defecto bolsa
+if(cantLabel) cantLabel.textContent = 'Bolsas a ingresar';
+} else {
+unidadWrap.innerHTML = '';
+if(cantLabel) cantLabel.textContent = 'Cantidad';
+}
+}
 document.getElementById('ped-cant').value = 1;
+}
+
+let _pedUnidad = 'unidad'; // 'bolsa' o 'unidad'
+
+function setUnidadPedido(tipo){
+_pedUnidad = tipo;
+const btnBolsa = document.getElementById('btn-ped-bolsa');
+const btnUnidad = document.getElementById('btn-ped-unidad');
+const infoEl = document.getElementById('ped-unidad-info');
+const cantLabel = document.getElementById('ped-cant-label');
+if(btnBolsa){
+btnBolsa.style.background = tipo==='bolsa' ? 'rgba(249,115,22,.25)' : '';
+btnBolsa.style.borderColor = tipo==='bolsa' ? 'var(--acc)' : '';
+btnBolsa.className = tipo==='bolsa' ? 'btn btn-primary btn-sm' : 'btn btn-sec btn-sm';
+}
+if(btnUnidad){
+btnUnidad.className = tipo==='unidad' ? 'btn btn-primary btn-sm' : 'btn btn-sec btn-sm';
+}
+if(infoEl){
+infoEl.textContent = tipo==='bolsa'
+? '📦 Cada bolsa es la unidad completa que comprás (precio por bolsa)'
+: '🔢 Unidades sueltas — usá esto solo si entraron unidades parciales';
+}
+if(cantLabel){
+cantLabel.textContent = tipo==='bolsa' ? 'Bolsas a ingresar' : 'Unidades sueltas';
+}
+}
+
+function resetUnidadPedido(){
+_pedUnidad = 'unidad';
+const unidadWrap = document.getElementById('ped-unidad-wrap');
+if(unidadWrap) unidadWrap.innerHTML = '';
+const cantLabel = document.getElementById('ped-cant-label');
+if(cantLabel) cantLabel.textContent = 'Cantidad';
 }
 
 function agregarAlPedido(){
@@ -4168,24 +4235,44 @@ if(!pid){ toast('Seleccioná un producto','err'); return; }
 if(cant <= 0){ toast('Ingresá una cantidad válida','err'); return; }
 const prod = db.productos.find(x=>x.id===pid);
 if(!prod) return;
-if(_pedidoTipo === 'salida' && cant > prod.stock){
-toast(`Solo hay ${prod.stock} uds de ${prod.nombre} en stock`,'err'); return;
+const esPelota = prod.cat==='pelotas';
+const esChicleDulce = prod.cat==='chicles' || prod.cat==='dulces';
+// Calcular unidades reales que van al stock
+// Para pelotas: cant = bolsas → cant*300 uds
+// Para chicles/dulces bolsa: cant = bolsas → cant*1 (stock se lleva en bolsas para estas cat.)
+// Para chicles/dulces unidad: cant = uds sueltas → cant*1
+// IMPORTANTE: para chicles/dulces el stock se lleva en BOLSAS como unidad base
+const cantStock = esPelota ? cant * 300 : cant; // siempre 1:1 excepto pelotas
+const unidadLabel = esPelota ? `${cant} bolsa${cant!==1?'s':''} (${cantStock} uds)`
+: esChicleDulce && _pedUnidad==='bolsa' ? `${cant} bolsa${cant!==1?'s':''}`
+: `${cant} uds`;
+if(_pedidoTipo === 'salida' && cantStock > prod.stock){
+toast(`Solo hay ${prod.stock} en stock de ${prod.nombre}`,'err'); return;
 }
 const existing = _pedidoCarrito.find(i=>i.prodId===pid);
-if(existing){ existing.cant += cant; }
-else { _pedidoCarrito.push({ prodId:pid, nombre:prod.nombre, emoji:prod.emoji, stock:prod.stock, cant }); }
+if(existing){
+existing.cant += cant;
+existing.cantStock += cantStock;
+} else {
+_pedidoCarrito.push({
+prodId:pid, nombre:prod.nombre, emoji:prod.emoji,
+stock:prod.stock, cant, cantStock,
+unidadLabel, esPelota, esChicleDulce, unidadTipo: _pedUnidad
+});
+}
 document.getElementById('ped-prod').value = '';
 document.getElementById('ped-prod-info').textContent = '';
+resetUnidadPedido();
 document.getElementById('ped-cant').value = 1;
 renderPedidoCarrito();
-toast(`✓ ${prod.nombre} × ${cant} agregado`);
+toast(`✓ ${prod.nombre} × ${unidadLabel} agregado`);
 }
 
 function renderPedidoCarrito(){
 const wrap = document.getElementById('ped-lista-wrap');
 if(!_pedidoCarrito.length){ if(wrap) wrap.style.display='none'; return; }
 if(wrap) wrap.style.display='block';
-const totalUds = _pedidoCarrito.reduce((s,i)=>s+i.cant,0);
+const totalUds = _pedidoCarrito.reduce((s,i)=>s+(i.cantStock||i.cant),0);
 const color = _pedidoTipo==='ingreso' ? 'var(--grn)' : 'var(--red)';
 const signo = _pedidoTipo==='ingreso' ? '+' : '-';
 document.getElementById('ped-lista-items').innerHTML = _pedidoCarrito.map((item,idx) => `
@@ -4271,7 +4358,9 @@ const usuario = _rolActual === 'vendedor' ? 'Rosmery Archila' : (_rolActual === 
 _pedidoCarrito.forEach(item => {
 const prod = db.productos.find(x=>x.id===item.prodId);
 if(!prod) return;
-const delta = _pedidoTipo === 'ingreso' ? item.cant : -item.cant;
+// Usar cantStock (unidades reales al stock) en vez de cant (unidades de display)
+const unidadesReales = item.cantStock || item.cant;
+const delta = _pedidoTipo === 'ingreso' ? unidadesReales : -unidadesReales;
 prod.stock = Math.max(0, prod.stock + delta);
 db.movimientos.push({
 id: 'PED-'+Date.now()+'-'+item.prodId,
@@ -4295,7 +4384,7 @@ tipo: _pedidoTipo,
 motivo, dpi,
 ejecutadoPor: usuario,
 items: _pedidoCarrito.map(i=>({...i})),
-totalUds: _pedidoCarrito.reduce((s,i)=>s+i.cant,0)
+totalUds: _pedidoCarrito.reduce((s,i)=>s+(i.cantStock||i.cant),0)
 });
 
 saveDB();
@@ -4304,7 +4393,7 @@ renderStock();
 
 const tipoLabel = _pedidoTipo === 'ingreso' ? '📦 Ingreso' : '🚚 Salida/Traslado';
 const pedidoGuardado = db.pedidos[db.pedidos.length-1];
-toast(`✅ ${tipoLabel} registrado — ${_pedidoCarrito.reduce((s,i)=>s+i.cant,0)} uds · ${usuario}`);
+toast(`✅ ${tipoLabel} registrado — ${_pedidoCarrito.reduce((s,i)=>s+(i.cantStock||i.cant),0)} uds · ${usuario}`);
 
 setTimeout(() => {
 if(confirm(`¿Enviar notificación de ${tipoLabel} al Admin por WhatsApp?`)){
