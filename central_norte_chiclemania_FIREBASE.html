@@ -6128,73 +6128,94 @@ return '<div class="admin-card" style="margin-bottom:8px">'
 //  CUADRE DE CAJA — REPORTE MULTIPAGOS
 // ════════════════════════════════════════════════════
 function _getCdrRango(prefijo){
-const p = prefijo||'';
-const periodo = document.getElementById('cdr-periodo'+p)?.value || 'mes';
+const isAud = prefijo === '-aud';
 const hoyStr = hoy();
+
+// IDs específicos según sección
+const periodoId   = isAud ? 'cdr-periodo-aud'   : 'cdr-periodo';
+const nMesesId    = isAud ? 'cdr-n-meses-aud'   : 'cdr-n-meses';
+const desdeId     = isAud ? 'cdr-desde-aud'     : 'cdr-desde';
+const hastaId     = isAud ? 'cdr-hasta-aud'     : 'cdr-hasta';
+const chkEfId     = isAud ? 'cdr-chk-ef-aud'   : 'cdr-chk-efectivo';
+const chkTaId     = isAud ? 'cdr-chk-ta-aud'   : 'cdr-chk-tarjeta';
+const chkTrId     = isAud ? 'cdr-chk-tr-aud'   : 'cdr-chk-transf';
+
+const periodo = document.getElementById(periodoId)?.value || 'mes';
 let desde = '', hasta = hoyStr;
 
-if(periodo==='hoy'){ desde = hasta = hoyStr; }
-else if(periodo==='semana'){
-const d=new Date(); d.setDate(d.getDate()-6);
-desde = d.toISOString().slice(0,10);
+if(periodo==='hoy'){
+  desde = hasta = hoyStr;
+} else if(periodo==='semana'){
+  const d=new Date(); d.setDate(d.getDate()-6);
+  desde = d.toISOString().slice(0,10);
 } else if(periodo==='mes'){
-const d=new Date();
-desde = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+  const d=new Date();
+  desde = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
 } else if(periodo==='anio'){
-const d=new Date(); desde = d.getFullYear()+'-01-01';
+  const d=new Date(); desde = d.getFullYear()+'-01-01';
 } else if(periodo==='meses'){
-const n = parseInt(document.getElementById('cdr-n-meses'+p)?.value)||3;
-const d=new Date(); d.setMonth(d.getMonth()-n);
-desde = d.toISOString().slice(0,10);
+  const n = parseInt(document.getElementById(nMesesId)?.value)||3;
+  const d=new Date(); d.setMonth(d.getMonth()-n);
+  desde = d.toISOString().slice(0,10);
 } else if(periodo==='rango'){
-desde = document.getElementById('cdr-desde'+p)?.value || '';
-hasta  = document.getElementById('cdr-hasta'+p)?.value || hoyStr;
+  desde = document.getElementById(desdeId)?.value || '';
+  hasta  = document.getElementById(hastaId)?.value || hoyStr;
 }
 
-const inclEf = document.getElementById('cdr-chk-'+(p?'ef-':'')+'efectivo'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-ef'+p)?.checked ?? true;
-const inclTa = document.getElementById('cdr-chk-'+(p?'ta-':'')+'tarjeta'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-ta'+p)?.checked ?? true;
-const inclTr = document.getElementById('cdr-chk-'+(p?'tr-':'')+'transf'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-tr'+p)?.checked ?? true;
+const inclEf = document.getElementById(chkEfId)?.checked ?? true;
+const inclTa = document.getElementById(chkTaId)?.checked ?? true;
+const inclTr = document.getElementById(chkTrId)?.checked ?? true;
 
 let ventas = [...(db.ventas||[])].filter(v=>!v.anulada);
-if(desde) ventas = ventas.filter(v=>v.fecha>=desde);
-if(hasta)  ventas = ventas.filter(v=>v.fecha<=hasta);
+
+// Aplicar filtro de fecha — SIEMPRE
+if(desde) ventas = ventas.filter(v => v.fecha >= desde);
+if(hasta)  ventas = ventas.filter(v => v.fecha <= hasta);
 
 // Filtrar por métodos seleccionados
 ventas = ventas.filter(v=>{
-const ef = _getPagosMonto(v,'efectivo')>0;
-const ta = _getPagosMonto(v,'tarjeta')>0;
-const tr = _getPagosMonto(v,'transferencia')>0;
-if(ef && inclEf) return true;
-if(ta && inclTa) return true;
-if(tr && inclTr) return true;
-// Si ningún método coincide con el filtro, excluir
-return false;
+  const ef = _getPagosMonto(v,'efectivo') > 0;
+  const ta = _getPagosMonto(v,'tarjeta')  > 0;
+  const tr = _getPagosMonto(v,'transferencia') > 0;
+  // Incluir si al menos uno de los métodos seleccionados aplica
+  // Si no tiene pagos registrados, tratarlo como efectivo
+  const sinPagos = !ef && !ta && !tr;
+  if(sinPagos && inclEf) return true;
+  if(ef && inclEf) return true;
+  if(ta && inclTa) return true;
+  if(tr && inclTr) return true;
+  return false;
 });
 
 ventas.sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
 
 const periodoLabels = {
-hoy:'Hoy '+fmtFecha(new Date().toISOString()),
-semana:'Esta semana',
-mes:'Este mes',
-anio:'Este año',
-meses:'Últimos '+(document.getElementById('cdr-n-meses'+p)?.value||3)+' meses',
-rango:(desde?fmtFecha(desde+'T12:00:00'):'inicio')+' → '+(hasta?fmtFecha(hasta+'T12:00:00'):'hoy'),
+  hoy: 'Hoy '+fmtFecha(new Date().toISOString()),
+  semana: 'Esta semana',
+  mes: 'Este mes',
+  anio: 'Este año',
+  meses: 'Últimos '+(document.getElementById(nMesesId)?.value||3)+' meses',
+  rango: (desde ? fmtFecha(desde+'T12:00:00') : 'inicio') + ' → ' + (hasta ? fmtFecha(hasta+'T12:00:00') : 'hoy'),
 };
-const label = periodoLabels[periodo]||'';
-const metodosLabel = [inclEf?'💵 Efectivo':'',inclTa?'💳 Tarjeta':'',inclTr?'🏦 Transferencia':''].filter(Boolean).join(' · ');
+const label = periodoLabels[periodo] || '';
+const metodosLabel = [inclEf?'💵 Efectivo':'', inclTa?'💳 Tarjeta':'', inclTr?'🏦 Transferencia':''].filter(Boolean).join(' · ');
 
 return { ventas, desde, hasta, label, inclEf, inclTa, inclTr, metodosLabel };
 }
+
 
 function _renderCuadreResultado(datos, sufijo){
 const s = sufijo||'';
 const { ventas, label, inclEf, inclTa, inclTr, metodosLabel } = datos;
 
+// Calcular todos los totales
+const totSubtotal   = ventas.reduce((s,v)=>s+(v.subtotal||v.total),0);  // precio de lista antes de descuento
+const totDescuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0); // descuentos aplicados
 const totEf = ventas.reduce((s,v)=>s+_getPagosMonto(v,'efectivo'),0);
 const totTa = ventas.reduce((s,v)=>s+_getPagosMonto(v,'tarjeta'),0);
 const totTr = ventas.reduce((s,v)=>s+_getPagosMonto(v,'transferencia'),0);
-const totGen = ventas.reduce((s,v)=>s+v.total,0);
+const totCobrado = totEf + totTa + totTr; // lo que realmente se recibió
+const totGen = ventas.reduce((s,v)=>s+v.total,0); // total registrado (ya con descuento)
 
 const labelEl = document.getElementById('cdr-periodo-label'+s);
 if(labelEl) labelEl.innerHTML = label + ' <span style="color:var(--txt3);font-weight:400;font-size:11px">· '+metodosLabel+'</span>';
@@ -6203,8 +6224,9 @@ const statsEl = document.getElementById('cdr-stats'+s);
 if(statsEl) statsEl.innerHTML =
 (inclEf?`<div class="stat-card"><div class="stat-label">💵 Efectivo</div><div class="stat-val" style="color:#16a34a">Q${totEf.toFixed(2)}</div></div>`:'')+
 (inclTa?`<div class="stat-card"><div class="stat-label">💳 Tarjeta</div><div class="stat-val" style="color:#2563eb">Q${totTa.toFixed(2)}</div></div>`:'')+
-(inclTr?`<div class="stat-card"><div class="stat-label">🏦 Transferencia</div><div class="stat-val" style="color:#7c3aed">Q${totTr.toFixed(2)}</div></div>`:'')+
-`<div class="stat-card"><div class="stat-label">📊 Total</div><div class="stat-val" style="color:var(--acc)">Q${totGen.toFixed(2)}</div><div class="stat-note">${ventas.length} ventas</div></div>`;
+(inclTr?`<div class="stat-card"><div class="stat-label">🏦 Transf.</div><div class="stat-val" style="color:#7c3aed">Q${totTr.toFixed(2)}</div></div>`:'')+
+(totDescuentos>0?`<div class="stat-card"><div class="stat-label">🏷️ Descuentos</div><div class="stat-val" style="color:#d97706">-Q${totDescuentos.toFixed(2)}</div></div>`:'')+
+`<div class="stat-card" style="border-color:var(--acc)"><div class="stat-label">📊 Total cobrado</div><div class="stat-val" style="color:var(--acc)">Q${totCobrado.toFixed(2)}</div><div class="stat-note">${ventas.length} ventas</div></div>`;
 
 const bodyEl = document.getElementById('cdr-tabla-body'+s);
 const footEl = document.getElementById('cdr-tabla-foot'+s);
@@ -6213,30 +6235,48 @@ if(bodyEl) bodyEl.innerHTML = ventas.map((v,i)=>{
 const ef = _getPagosMonto(v,'efectivo');
 const ta = _getPagosMonto(v,'tarjeta');
 const tr = _getPagosMonto(v,'transferencia');
+const subtotal = v.subtotal || v.total;
+const descuento = Math.max(0, v.descuento||0);
+const cobrado = ef+ta+tr || v.total;
 const ref = v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
 const bg = i%2===0?'':'background:var(--bg3)';
+// Mostrar precio de lista tachado si hay descuento
+const totalCell = descuento>0
+? `<span style="text-decoration:line-through;color:var(--txt3);font-size:10px">Q${subtotal.toFixed(2)}</span><br><span style="color:var(--yel);font-size:9px">-Q${descuento.toFixed(2)}</span><br><b style="color:var(--acc)">Q${cobrado.toFixed(2)}</b>`
+: `<b style="color:var(--acc)">Q${cobrado.toFixed(2)}</b>`;
 return `<tr style="${bg}">
 <td style="padding:7px 10px;font-size:11px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:var(--acc);font-size:10px">${fmtHora(v.timestamp)}</span></td>
 <td style="padding:7px 10px;font-size:11px">${v.cliente||'CF'}</td>
 <td style="padding:7px 10px;font-size:11px;text-align:right;color:${ef>0?'#16a34a':'var(--txt3)'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
 <td style="padding:7px 10px;font-size:11px;text-align:right;color:${ta>0?'#2563eb':'var(--txt3)'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
 <td style="padding:7px 10px;font-size:11px;text-align:right;color:${tr>0?'#7c3aed':'var(--txt3)'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
-<td style="padding:7px 10px;font-size:10px;color:var(--txt3);max-width:100px;overflow:hidden;text-overflow:ellipsis">${ref}</td>
-<td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:700;color:var(--acc)">Q${v.total.toFixed(2)}</td>
+<td style="padding:7px 10px;font-size:10px;color:var(--txt3);max-width:90px;overflow:hidden;text-overflow:ellipsis">${ref}</td>
+<td style="padding:7px 10px;font-size:11px;text-align:right;line-height:1.4">${totalCell}</td>
 </tr>`;
 }).join('');
 
-if(footEl) footEl.innerHTML = `<tr style="background:var(--bg3);border-top:2px solid var(--acc)">
-<td colspan="2" style="padding:9px 10px;font-weight:700;font-size:12px">${ventas.length} ventas</td>
+if(footEl) footEl.innerHTML =
+`<tr style="background:var(--bg3);border-top:1px solid var(--bdr)">
+<td colspan="2" style="padding:8px 10px;font-size:11px;color:var(--txt3)">Precio de lista (antes descuentos)</td>
+<td colspan="4"></td>
+<td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--txt3)">Q${totSubtotal.toFixed(2)}</td>
+</tr>`+
+(totDescuentos>0?`<tr style="background:var(--bg3)">
+<td colspan="2" style="padding:8px 10px;font-size:11px;color:#d97706">🏷️ Total descuentos aplicados</td>
+<td colspan="4"></td>
+<td style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#d97706">-Q${totDescuentos.toFixed(2)}</td>
+</tr>`:'')+
+`<tr style="background:var(--bg3);border-top:2px solid var(--acc)">
+<td colspan="2" style="padding:9px 10px;font-weight:700;font-size:12px">${ventas.length} ventas · Total cobrado</td>
 <td style="padding:9px 10px;text-align:right;font-weight:800;color:#16a34a">${inclEf?'Q'+totEf.toFixed(2):''}</td>
 <td style="padding:9px 10px;text-align:right;font-weight:800;color:#2563eb">${inclTa?'Q'+totTa.toFixed(2):''}</td>
 <td style="padding:9px 10px;text-align:right;font-weight:800;color:#7c3aed">${inclTr?'Q'+totTr.toFixed(2):''}</td>
 <td></td>
-<td style="padding:9px 10px;text-align:right;font-weight:800;font-size:14px;color:var(--acc)">Q${totGen.toFixed(2)}</td>
+<td style="padding:9px 10px;text-align:right;font-weight:800;font-size:15px;color:var(--acc)">Q${totCobrado.toFixed(2)}</td>
 </tr>`;
 
 document.getElementById('cdr-resultado'+s).style.display='block';
-return { totEf,totTa,totTr,totGen,ventas };
+return { totEf, totTa, totTr, totGen: totCobrado, totSubtotal, totDescuentos, ventas };
 }
 
 function generarCuadreCaja(){ const d=_getCdrRango(''); _renderCuadreResultado(d,''); }
@@ -6292,7 +6332,13 @@ const { ventas, label, metodosLabel, inclEf, inclTa, inclTr } = datos;
 
 const rows = ventas.map((v,i)=>{
 const ef=_getPagosMonto(v,'efectivo'), ta=_getPagosMonto(v,'tarjeta'), tr=_getPagosMonto(v,'transferencia');
+const cobrado = ef+ta+tr || v.total;
+const subtotal = v.subtotal || v.total;
+const descuento = Math.max(0, v.descuento||0);
 const ref=v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
+const totalCell = descuento>0
+? `<span style="text-decoration:line-through;color:#aaa;font-size:9px">Q${subtotal.toFixed(2)}</span> <span style="color:#d97706;font-size:9px">-Q${descuento.toFixed(2)}</span><br><b>Q${cobrado.toFixed(2)}</b>`
+: `Q${cobrado.toFixed(2)}`;
 return `<tr style="background:${i%2===0?'#fff':'#f8faff'}">
 <td style="padding:5px 8px;font-size:10px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:#f97316">${fmtHora(v.timestamp)}</span></td>
 <td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}<br><span style="color:#888;font-size:9px">${v.nit||'CF'}</span></td>
@@ -6300,7 +6346,7 @@ return `<tr style="background:${i%2===0?'#fff':'#f8faff'}">
 <td style="padding:5px 8px;font-size:10px;text-align:right;color:${ta>0?'#2563eb':'#ccc'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
 <td style="padding:5px 8px;font-size:10px;text-align:right;color:${tr>0?'#7c3aed':'#ccc'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
 <td style="padding:5px 8px;font-size:9px;color:#888">${ref}</td>
-<td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#f97316">Q${v.total.toFixed(2)}</td>
+<td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700;color:#f97316;line-height:1.4">${totalCell}</td>
 </tr>`;
 }).join('');
 
@@ -6343,13 +6389,17 @@ ${inclTr?'<th class="r" style="background:#7c3aed">🏦 Transferencia</th>':''}
 <th>N° Autorización</th><th class="r" style="background:#b45309">Total Q</th>
 </tr></thead>
 <tbody>${rows}</tbody>
-<tfoot><tr>
-<td colspan="2" style="padding:8px">TOTALES — ${ventas.length} venta${ventas.length!==1?'s':''}</td>
-${inclEf?`<td style="padding:8px;text-align:right;color:#16a34a">Q${r.totEf.toFixed(2)}</td>`:''}
-${inclTa?`<td style="padding:8px;text-align:right;color:#2563eb">Q${r.totTa.toFixed(2)}</td>`:''}
-${inclTr?`<td style="padding:8px;text-align:right;color:#7c3aed">Q${r.totTr.toFixed(2)}</td>`:''}
+<tfoot>
+${r.totSubtotal && r.totSubtotal !== r.totGen ? `<tr style="background:#fafafa"><td colspan="6" style="padding:5px 8px;font-size:9px;color:#888">Precio de lista (antes de descuentos)</td><td style="padding:5px 8px;text-align:right;font-size:9px;color:#888">Q${r.totSubtotal.toFixed(2)}</td></tr>` : ''}
+${r.totDescuentos > 0 ? `<tr style="background:#fffbeb"><td colspan="6" style="padding:5px 8px;font-size:9px;font-weight:600;color:#d97706">🏷️ Total descuentos aplicados</td><td style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#d97706">-Q${r.totDescuentos.toFixed(2)}</td></tr>` : ''}
+<tr>
+<td colspan="2" style="padding:8px">TOTALES COBRADOS — ${ventas.length} venta${ventas.length!==1?'s':''}</td>
+${inclEf?`<td style="padding:8px;text-align:right;color:#16a34a">Q${r.totEf.toFixed(2)}</td>`:'<td></td>'}
+${inclTa?`<td style="padding:8px;text-align:right;color:#2563eb">Q${r.totTa.toFixed(2)}</td>`:'<td></td>'}
+${inclTr?`<td style="padding:8px;text-align:right;color:#7c3aed">Q${r.totTr.toFixed(2)}</td>`:'<td></td>'}
 <td></td><td style="padding:8px;text-align:right;color:#f97316;font-size:13px">Q${r.totGen.toFixed(2)}</td>
-</tr></tfoot>
+</tr>
+</tfoot>
 </table>
 <div class="firma">
 <div class="firma-box">Vendedor: Rosmery Archila</div>
