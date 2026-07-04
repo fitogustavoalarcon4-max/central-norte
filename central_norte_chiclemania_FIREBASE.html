@@ -2617,30 +2617,86 @@ toast(`✅ Venta ${v.id} anulada — stock devuelto correctamente`, 'ok');
 }
 
 function exportarHistorial(){
-const data = [];
-db.ventas.forEach(v => {
-v.items.forEach(i => {
-data.push({
-'Venta ID': v.id,
-'Fecha': fmtFecha(v.timestamp),
-'Hora': fmtHora(v.timestamp),
-'Cliente': v.cliente||'CF',
-'Vendedor': v.vendedor,
-'Producto': i.nombre,
-'SKU': i.prodId,
-'Cantidad': i.cant,
-'Precio Q': i.precio,
-'Subtotal Q': i.subtotal,
-'Total Venta Q': v.total,
-});
-});
-});
-if(!data.length){ toast('Sin ventas para exportar','err'); return; }
+// Aplicar el mismo filtro activo
+const hoyStr = hoy();
+let ventas = [...db.ventas].filter(v=>!v.anulada);
+if(_histFiltro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
+else if(_histFiltro==='semana'){
+const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
+ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
+} else if(_histFiltro==='mes'){
+const d = new Date();
+const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+ventas = ventas.filter(v=>v.fecha>=inicioMes);
+} else if(_histFiltro==='rango'){
+if(_histDesde) ventas = ventas.filter(v=>v.fecha>=_histDesde);
+if(_histHasta) ventas = ventas.filter(v=>v.fecha<=_histHasta);
+}
+
+if(!ventas.length){ toast('Sin ventas para exportar','err'); return; }
+
+// Calcular totales por método
+const totEfectivo = ventas.reduce((s,v)=>{
+if(v.pagos?.length) return s+v.pagos.filter(p=>p.metodo==='efectivo').reduce((ss,p)=>ss+p.monto,0);
+return s+((!v.metodoPago||v.metodoPago==='efectivo')?v.total:0);
+},0);
+const totTarjeta = ventas.reduce((s,v)=>{
+if(v.pagos?.length) return s+v.pagos.filter(p=>p.metodo==='tarjeta').reduce((ss,p)=>ss+p.monto,0);
+return s+(v.metodoPago==='tarjeta'?v.total:0);
+},0);
+const totTransf = ventas.reduce((s,v)=>{
+if(v.pagos?.length) return s+v.pagos.filter(p=>p.metodo==='transferencia').reduce((ss,p)=>ss+p.monto,0);
+return s+(v.metodoPago==='transferencia'?v.total:0);
+},0);
+const totalGeneral = ventas.reduce((s,v)=>s+v.total,0);
+
 const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.json_to_sheet(data);
-XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
-XLSX.writeFile(wb, `central_norte_ventas_${hoy()}.xlsx`);
-toast('✅ Excel exportado');
+
+// Hoja 1: Resumen por método de pago
+const resumen = [
+{'Método de pago':'💵 Efectivo', 'Total Q':totEfectivo.toFixed(2), 'Transacciones':ventas.filter(v=>!v.metodoPago||v.metodoPago==='efectivo'||v.pagos?.some(p=>p.metodo==='efectivo')).length},
+{'Método de pago':'💳 Tarjeta',  'Total Q':totTarjeta.toFixed(2),  'Transacciones':ventas.filter(v=>v.metodoPago==='tarjeta'||v.pagos?.some(p=>p.metodo==='tarjeta')).length},
+{'Método de pago':'🏦 Transferencia','Total Q':totTransf.toFixed(2),'Transacciones':ventas.filter(v=>v.metodoPago==='transferencia'||v.pagos?.some(p=>p.metodo==='transferencia')).length},
+{'Método de pago':'📊 TOTAL GENERAL','Total Q':totalGeneral.toFixed(2),'Transacciones':ventas.length},
+];
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen pagos');
+
+// Hoja 2: Detalle por venta
+const detVenta = ventas.slice().reverse().map(v=>{
+const metodo = v.pagos?.length
+? v.pagos.map(p=>({efectivo:'Efectivo',tarjeta:'Tarjeta',transferencia:'Transferencia'}[p.metodo]||p.metodo)+' Q'+p.monto.toFixed(2)).join(' + ')
+: ({efectivo:'Efectivo',tarjeta:'Tarjeta',transferencia:'Transferencia'}[v.metodoPago]||'Efectivo');
+return {
+'Fecha':fmtFecha(v.timestamp), 'Hora':fmtHora(v.timestamp),
+'Venta ID':v.id, 'Cliente':v.cliente||'CF', 'NIT':v.nit||'CF',
+'Productos':v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', '),
+'Método de pago':metodo,
+'N° Autorización/Ref':v.numAuth||v.numTransf||'',
+'Efectivo Q':v.pagos?.length?v.pagos.filter(p=>p.metodo==='efectivo').reduce((s,p)=>s+p.monto,0).toFixed(2):((!v.metodoPago||v.metodoPago==='efectivo')?v.total.toFixed(2):'0.00'),
+'Tarjeta Q':v.pagos?.length?v.pagos.filter(p=>p.metodo==='tarjeta').reduce((s,p)=>s+p.monto,0).toFixed(2):(v.metodoPago==='tarjeta'?v.total.toFixed(2):'0.00'),
+'Transferencia Q':v.pagos?.length?v.pagos.filter(p=>p.metodo==='transferencia').reduce((s,p)=>s+p.monto,0).toFixed(2):(v.metodoPago==='transferencia'?v.total.toFixed(2):'0.00'),
+'Descuento Q':(v.descuento||0).toFixed(2),
+'Total Q':v.total.toFixed(2),
+};
+});
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detVenta), 'Detalle ventas');
+
+// Hoja 3: Detalle por producto
+const detProd = [];
+ventas.slice().reverse().forEach(v=>{
+v.items.forEach(i=>{
+detProd.push({
+'Fecha':fmtFecha(v.timestamp), 'Hora':fmtHora(v.timestamp),
+'Venta ID':v.id, 'Cliente':v.cliente||'CF',
+'Producto':i.nombre, 'Cantidad':i.cant, 'Precio Q':i.precio, 'Subtotal Q':i.subtotal,
+'Total venta Q':v.total,
+});
+});
+});
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detProd), 'Detalle productos');
+
+XLSX.writeFile(wb, `ventas_central_norte_${_histFiltro}_${hoy()}.xlsx`);
+toast('✅ Excel exportado con 3 hojas — Resumen, Ventas, Productos');
 }
 
 const PELOTA_UDS_CAJA  = 2000;
@@ -3047,35 +3103,161 @@ if(_rolActual==='admin') renderResumenAdmin();
 
 function exportarHistorialPDF(){
 const hoyStr = hoy();
-let ventas = [...db.ventas];
+let ventas = [...db.ventas].filter(v=>!v.anulada);
+// Aplicar el mismo filtro activo del historial
 if(_histFiltro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
 else if(_histFiltro==='semana'){
 const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
 ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
+} else if(_histFiltro==='mes'){
+const d = new Date();
+const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+ventas = ventas.filter(v=>v.fecha>=inicioMes);
+} else if(_histFiltro==='rango'){
+if(_histDesde) ventas = ventas.filter(v=>v.fecha>=_histDesde);
+if(_histHasta) ventas = ventas.filter(v=>v.fecha<=_histHasta);
 }
-const total = ventas.reduce((s,v)=>s+v.total,0);
-const rows = ventas.reverse().map(v=>`
-<tr>
-<td style="padding:5px 8px;font-size:11px">${fmtFecha(v.timestamp)}</td>
-<td style="padding:5px 8px;font-size:11px">${fmtHora(v.timestamp)}</td>
-<td style="padding:5px 8px;font-size:11px">${v.cliente||'CF'}</td>
-<td style="padding:5px 8px;font-size:11px">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,20)}`).join(', ')}</td>
-<td style="padding:5px 8px;font-size:11px;font-weight:700;text-align:right">Q${v.total.toFixed(2)}</td>
-<td style="padding:5px 8px;font-size:11px">${v.vendedor}</td>
-</tr>`).join('');
-const w = window.open('','_blank','width=900,height=700');
-w.document.write(`<!DOCTYPE html><html><head><title>Historial Ventas — Central Norte</title>
-<style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:11px}tr:nth-child(even){background:#f9f9f9}.total{font-size:16px;font-weight:bold;color:#f97316}@media print{.no-print{display:none}}</style>
+ventas = ventas.slice().reverse();
+
+// Calcular totales por método de pago
+const totalGeneral = ventas.reduce((s,v)=>s+v.total,0);
+
+// Agrupar pagos — cada venta puede tener array pagos[] o solo metodoPago
+const totEfectivo     = ventas.reduce((s,v)=>{
+if(v.pagos?.length){ return s + v.pagos.filter(p=>p.metodo==='efectivo').reduce((ss,p)=>ss+p.monto,0); }
+return s + ((!v.metodoPago||v.metodoPago==='efectivo') ? v.total : 0);
+},0);
+const totTarjeta      = ventas.reduce((s,v)=>{
+if(v.pagos?.length){ return s + v.pagos.filter(p=>p.metodo==='tarjeta').reduce((ss,p)=>ss+p.monto,0); }
+return s + (v.metodoPago==='tarjeta' ? v.total : 0);
+},0);
+const totTransferencia= ventas.reduce((s,v)=>{
+if(v.pagos?.length){ return s + v.pagos.filter(p=>p.metodo==='transferencia').reduce((ss,p)=>ss+p.monto,0); }
+return s + (v.metodoPago==='transferencia' ? v.total : 0);
+},0);
+
+const nEfectivo      = ventas.filter(v=>!v.metodoPago||v.metodoPago==='efectivo'||v.pagos?.some(p=>p.metodo==='efectivo')).length;
+const nTarjeta       = ventas.filter(v=>v.metodoPago==='tarjeta'||v.pagos?.some(p=>p.metodo==='tarjeta')).length;
+const nTransferencia = ventas.filter(v=>v.metodoPago==='transferencia'||v.pagos?.some(p=>p.metodo==='transferencia')).length;
+
+const periodoLabel = {
+hoy:'Hoy '+fmtFecha(new Date().toISOString()),
+semana:'Últimos 7 días',
+mes:'Este mes',
+rango:(_histDesde||'inicio')+' → '+(_histHasta||'hoy'),
+todo:'Todas las ventas'
+}[_histFiltro]||'';
+
+// Construir filas
+const rows = ventas.map(v=>{
+const metodoIcono = v.pagos?.length
+? v.pagos.map(p=>({efectivo:'💵',tarjeta:'💳',transferencia:'🏦'}[p.metodo]||'💵')+' Q'+p.monto.toFixed(2)).join(' + ')
+: ({efectivo:'💵 Efectivo',tarjeta:'💳 Tarjeta',transferencia:'🏦 Transferencia'}[v.metodoPago]||'💵 Efectivo');
+const numRef = v.numAuth||v.numTransf||'';
+return `<tr>
+<td style="padding:5px 8px;font-size:10px;white-space:nowrap">${fmtFecha(v.timestamp)}<br>${fmtHora(v.timestamp)}</td>
+<td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}<br><span style="color:#888;font-size:9px">${v.nit||'CF'}</span></td>
+<td style="padding:5px 8px;font-size:10px">${v.items.map(i=>`${i.cant}× ${i.nombre.substring(0,18)}`).join(', ')}</td>
+<td style="padding:5px 8px;font-size:10px;text-align:center">${metodoIcono}${numRef?'<br><span style="font-size:9px;color:#888">Ref: '+numRef+'</span>':''}</td>
+<td style="padding:5px 8px;font-size:11px;font-weight:700;text-align:right;color:${v.descuento?'#d97706':'#16a34a'}">Q${v.total.toFixed(2)}${v.descuento?'<br><span style="font-size:9px;color:#d97706">Desc: Q'+v.descuento.toFixed(2)+'</span>':''}</td>
+</tr>`;
+}).join('');
+
+const w = window.open('','_blank','width=950,height=780');
+w.document.write(`<!DOCTYPE html><html><head><title>Reporte Ventas — Central Norte</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;padding:20px;color:#111;font-size:12px}
+h2{color:#f97316;font-size:18px;margin-bottom:4px}
+.resumen{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.box{border-radius:8px;padding:12px;text-align:center}
+.box-l{font-size:10px;color:#888;text-transform:uppercase;margin-bottom:4px}
+.box-v{font-size:18px;font-weight:800}
+.box-n{font-size:10px;color:#888;margin-top:3px}
+.sep{height:2px;background:#f97316;margin:16px 0}
+table{width:100%;border-collapse:collapse}
+th{background:#f97316;color:#fff;padding:8px;text-align:left;font-size:10px;text-transform:uppercase}
+tr:nth-child(even){background:#fafafa}
+tfoot td{background:#fff8f0;font-weight:700;border-top:2px solid #f97316}
+.firma{display:flex;gap:40px;margin-top:32px}
+.firma-box{flex:1;border-top:1px solid #333;text-align:center;padding-top:6px;font-size:10px;color:#666}
+.footer{text-align:center;margin-top:16px;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
+@media print{.np{display:none}}
+</style>
 </head><body>
-<h2>🍬 ChicleManía — Central Norte</h2>
-<h3>Historial de Ventas — ${_histFiltro==='hoy'?'Hoy':_histFiltro==='semana'?'Últimos 7 días':'Todas'}</h3>
-<p>Generado: <b>${new Date().toLocaleString('es-GT')}</b></p>
-<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Productos</th><th>Total Q</th><th>Vendedor</th></tr></thead>
-<tbody>${rows}</tbody></table>
-<p class="total" style="margin-top:16px">TOTAL: Q${total.toLocaleString('es-GT',{minimumFractionDigits:2})}</p>
-<div class="no-print" style="margin-top:16px">
-<button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimir / Guardar PDF</button>
-</div></body></html>`);
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div>
+<h2>🍬 ChicleManía S.A.</h2>
+<div style="font-size:11px;color:#888">NIT: 12044610-3 · Central Norte</div>
+</div>
+<div style="text-align:right">
+<div style="font-size:14px;font-weight:800">REPORTE DE VENTAS</div>
+<div style="font-size:11px;color:#888">Período: <b>${periodoLabel}</b></div>
+<div style="font-size:11px;color:#888">Generado: ${new Date().toLocaleString('es-GT')}</div>
+<div style="font-size:11px;color:#888">Por: ${_rolActual==='admin'?'Admin':'Rosmery Archila'}</div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- RESUMEN POR MÉTODO DE PAGO -->
+<div class="resumen">
+<div class="box" style="background:#f0fdf4;border:1px solid #86efac">
+<div class="box-l">💵 Efectivo</div>
+<div class="box-v" style="color:#16a34a">Q${totEfectivo.toLocaleString('es-GT',{minimumFractionDigits:2})}</div>
+<div class="box-n">${nEfectivo} transacción${nEfectivo!==1?'es':''}</div>
+</div>
+<div class="box" style="background:#eff6ff;border:1px solid #93c5fd">
+<div class="box-l">💳 Tarjeta</div>
+<div class="box-v" style="color:#2563eb">Q${totTarjeta.toLocaleString('es-GT',{minimumFractionDigits:2})}</div>
+<div class="box-n">${nTarjeta} transacción${nTarjeta!==1?'es':''}</div>
+</div>
+<div class="box" style="background:#faf5ff;border:1px solid #c4b5fd">
+<div class="box-l">🏦 Transferencia</div>
+<div class="box-v" style="color:#7c3aed">Q${totTransferencia.toLocaleString('es-GT',{minimumFractionDigits:2})}</div>
+<div class="box-n">${nTransferencia} transacción${nTransferencia!==1?'es':''}</div>
+</div>
+<div class="box" style="background:#fff8f0;border:2px solid #f97316">
+<div class="box-l">📊 TOTAL GENERAL</div>
+<div class="box-v" style="color:#f97316;font-size:20px">Q${totalGeneral.toLocaleString('es-GT',{minimumFractionDigits:2})}</div>
+<div class="box-n">${ventas.length} venta${ventas.length!==1?'s':''}</div>
+</div>
+</div>
+
+<div class="sep"></div>
+
+<!-- DETALLE DE VENTAS -->
+<table>
+<thead><tr>
+<th>Fecha / Hora</th>
+<th>Cliente</th>
+<th>Productos</th>
+<th style="text-align:center">Método de pago</th>
+<th style="text-align:right">Total Q</th>
+</tr></thead>
+<tbody>${rows}</tbody>
+<tfoot>
+<tr>
+<td colspan="3" style="padding:8px;font-size:12px">${ventas.length} ventas · ${_histFiltro==='hoy'?'Hoy':periodoLabel}</td>
+<td style="padding:8px;text-align:center;font-size:11px">
+💵 Q${totEfectivo.toFixed(2)} · 💳 Q${totTarjeta.toFixed(2)} · 🏦 Q${totTransferencia.toFixed(2)}
+</td>
+<td style="padding:8px;text-align:right;font-size:14px;color:#f97316">Q${totalGeneral.toLocaleString('es-GT',{minimumFractionDigits:2})}</td>
+</tr>
+</tfoot>
+</table>
+
+<div class="firma">
+<div class="firma-box">Vendedor: Rosmery Archila</div>
+<div class="firma-box">Visto bueno Administrador</div>
+</div>
+
+<div class="footer">ChicleManía S.A. · NIT 12044610-3 · Central Norte</div>
+
+<div class="np" style="margin-top:20px;text-align:center">
+<button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+</div>
+</body></html>`);
 w.document.close();
 }
 
