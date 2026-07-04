@@ -1637,8 +1637,25 @@ goPage('venta', document.getElementById('tab-venta'));
 limpiarCarrito();
 }
 
-function hoy(){ return new Date().toISOString().slice(0,10); }
+function hoy(){
+  const d = new Date();
+  // Usar hora local, no UTC (Guatemala = UTC-6)
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dia = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dia;
+}
 function ahora(){ return new Date().toISOString(); }
+
+// Extrae la fecha LOCAL (no UTC) de un timestamp ISO — para filtros correctos
+function fechaLocal(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dia = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dia;
+}
 function fmtFecha(iso){
 if(!iso) return '—';
 const d = new Date(iso);
@@ -2594,18 +2611,18 @@ _histFiltro = filtro;
 const hoyStr = hoy();
 let ventas = [...db.ventas].reverse();
 
-if(filtro === 'hoy') ventas = ventas.filter(v => v.fecha === hoyStr);
+if(filtro === 'hoy') ventas = ventas.filter(v => fechaLocal(v.timestamp) === hoyStr);
 else if(filtro === 'semana'){
 const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
 const corte = hace7.toISOString().slice(0,10);
-ventas = ventas.filter(v => v.fecha >= corte);
+ventas = ventas.filter(v => fechaLocal(v.timestamp) >= corte);
 } else if(filtro === 'mes'){
 const d = new Date();
 const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
-ventas = ventas.filter(v => v.fecha >= inicioMes);
+ventas = ventas.filter(v => fechaLocal(v.timestamp) >= inicioMes);
 } else if(filtro === 'rango'){
-if(_histDesde) ventas = ventas.filter(v => v.fecha >= _histDesde);
-if(_histHasta) ventas = ventas.filter(v => v.fecha <= _histHasta);
+if(_histDesde) ventas = ventas.filter(v => fechaLocal(v.timestamp) >= _histDesde);
+if(_histHasta) ventas = ventas.filter(v => fechaLocal(v.timestamp) <= _histHasta);
 }
 
 const ventasActivas = ventas.filter(v => !v.anulada);
@@ -3106,8 +3123,8 @@ function actualizarPreviewRango(){
 const desde=document.getElementById('rpt-desde')?.value||'';
 const hasta=document.getElementById('rpt-hasta')?.value||'';
 let ventas=db.ventas;
-if(desde) ventas=ventas.filter(v=>v.fecha>=desde);
-if(hasta) ventas=ventas.filter(v=>v.fecha<=hasta);
+if(desde) ventas=ventas.filter(v=>fechaLocal(v.timestamp)>=desde);
+if(hasta) ventas=ventas.filter(v=>fechaLocal(v.timestamp)<=hasta);
 const total=ventas.reduce((s,v)=>s+v.total,0);
 const uds=ventas.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
 const el=document.getElementById('rpt-preview');
@@ -3118,8 +3135,8 @@ function getVentasFiltradas(){
 const desde=document.getElementById('rpt-desde')?.value||'';
 const hasta=document.getElementById('rpt-hasta')?.value||'';
 let ventas=db.ventas;
-if(desde) ventas=ventas.filter(v=>v.fecha>=desde);
-if(hasta) ventas=ventas.filter(v=>v.fecha<=hasta);
+if(desde) ventas=ventas.filter(v=>fechaLocal(v.timestamp)>=desde);
+if(hasta) ventas=ventas.filter(v=>fechaLocal(v.timestamp)<=hasta);
 return ventas;
 }
 
@@ -3242,22 +3259,22 @@ const hoyStr = hoy();
 let ventas = [...db.ventas].filter(v=>!v.anulada);
 // Leer el filtro activo directamente
 const filtro = _histFiltro || 'hoy';
-if(filtro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
+if(filtro==='hoy') ventas = ventas.filter(v=>fechaLocal(v.timestamp)===hoyStr);
 else if(filtro==='semana'){
 const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
 ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
 } else if(filtro==='mes'){
 const d = new Date();
 const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
-ventas = ventas.filter(v=>v.fecha>=inicioMes);
+ventas = ventas.filter(v=>fechaLocal(v.timestamp)>=inicioMes);
 } else if(filtro==='rango'){
 // SIEMPRE leer de los campos DOM — son la fuente de verdad
 const desdeEl = document.getElementById('hist-desde');
 const hastaEl = document.getElementById('hist-hasta');
 const desde = (desdeEl?.value || _histDesde || '').trim();
 const hasta  = (hastaEl?.value || _histHasta || '').trim();
-if(desde) ventas = ventas.filter(v=>v.fecha>=desde);
-if(hasta)  ventas = ventas.filter(v=>v.fecha<=hasta);
+if(desde) ventas = ventas.filter(v=>fechaLocal(v.timestamp)>=desde);
+if(hasta)  ventas = ventas.filter(v=>fechaLocal(v.timestamp)<=hasta);
 } else if(filtro==='todo'){
 // sin filtro
 }
@@ -5033,8 +5050,8 @@ else if(periodo==='mes'){   const d=new Date(); desde=d.getFullYear()+'-'+(Strin
 else { desde = document.getElementById('rpt-adv-desde')?.value||''; hasta = document.getElementById('rpt-adv-hasta')?.value||hoyStr; }
 
 let ventas = (db.ventas||[]).filter(v => !v.anulada);
-if(desde) ventas = ventas.filter(v => v.fecha >= desde);
-if(hasta) ventas = ventas.filter(v => v.fecha <= hasta);
+if(desde) ventas = ventas.filter(v => fechaLocal(v.timestamp) >= desde);
+if(hasta) ventas = ventas.filter(v => fechaLocal(v.timestamp) <= hasta);
 
 if(cat){
 ventas = ventas.map(v => ({
@@ -6169,8 +6186,8 @@ const inclTr = document.getElementById(chkTrId)?.checked ?? true;
 let ventas = [...(db.ventas||[])].filter(v=>!v.anulada);
 
 // Aplicar filtro de fecha — SIEMPRE
-if(desde) ventas = ventas.filter(v => v.fecha >= desde);
-if(hasta)  ventas = ventas.filter(v => v.fecha <= hasta);
+if(desde) ventas = ventas.filter(v => fechaLocal(v.timestamp) >= desde);
+if(hasta)  ventas = ventas.filter(v => fechaLocal(v.timestamp) <= hasta);
 
 // Filtrar por métodos seleccionados
 ventas = ventas.filter(v=>{
@@ -6209,13 +6226,14 @@ const s = sufijo||'';
 const { ventas, label, inclEf, inclTa, inclTr, metodosLabel } = datos;
 
 // Calcular todos los totales
-const totSubtotal   = ventas.reduce((s,v)=>s+(v.subtotal||v.total),0);  // precio de lista antes de descuento
-const totDescuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0); // descuentos aplicados
+const totSubtotal   = ventas.reduce((s,v)=>s+(v.subtotal||v.total),0);
+const totDescuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0);
 const totEf = ventas.reduce((s,v)=>s+_getPagosMonto(v,'efectivo'),0);
 const totTa = ventas.reduce((s,v)=>s+_getPagosMonto(v,'tarjeta'),0);
 const totTr = ventas.reduce((s,v)=>s+_getPagosMonto(v,'transferencia'),0);
-const totCobrado = totEf + totTa + totTr; // lo que realmente se recibió
-const totGen = ventas.reduce((s,v)=>s+v.total,0); // total registrado (ya con descuento)
+// Total cobrado = suma de SOLO los métodos incluidos en el filtro
+const totCobrado = (inclEf?totEf:0) + (inclTa?totTa:0) + (inclTr?totTr:0);
+const totGen = totCobrado; // siempre igual al cobrado para que haga match
 
 const labelEl = document.getElementById('cdr-periodo-label'+s);
 if(labelEl) labelEl.innerHTML = label + ' <span style="color:var(--txt3);font-weight:400;font-size:11px">· '+metodosLabel+'</span>';
