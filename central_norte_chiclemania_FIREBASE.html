@@ -3432,45 +3432,53 @@ toast('✅ Ventas de prueba borradas');
 }
 
 function recalcularStockDesdeHistorial(){
+const hoyStr = hoy();
+const ingresosHoy = (db.pedidos||[]).filter(p=>p.tipo==='ingreso' && p.fecha===hoyStr);
+
+if(!ingresosHoy.length){
+toast('No hay ingresos de hoy en el historial','err');
+return;
+}
+
+// Mostrar detalle de ingresos de hoy para que el usuario elija
+const resumen = ingresosHoy.map((p,i)=>
+`${i+1}. ${fmtHora(p.timestamp)} — ${p.items?.length||0} productos — ${p.ejecutadoPor}`
+).join('\n');
+
 if(!confirm(
-'⚠️ RECALCULAR STOCK\n\n' +
-'Esto va a recalcular el stock de TODOS los productos\n' +
-'partiendo de cero y sumando/restando todos los movimientos\n' +
-'de ingreso y ventas activas (excluyendo anuladas).\n\n' +
-'Útil para corregir el stock que quedó mal por\n' +
-'anulaciones múltiples.\n\n' +
+'⚠️ CORREGIR STOCK desde ingreso de hoy\n\n' +
+'Ingresos de hoy encontrados:\n' + resumen + '\n\n' +
+'Se va a resetear el stock a 0 y aplicar\n' +
+'el ÚLTIMO ingreso de hoy con las cantidades\n' +
+'exactas que registraste (1 = 1 unidad).\n\n' +
 '¿Continuar?'
 )) return;
 
+const ultimoIngreso = ingresosHoy[ingresosHoy.length-1];
+
+// Reset stock a 0
 db.productos.forEach(p => { p.stock = 0; });
 
-(db.pedidos||[]).forEach(ped => {
-if(ped.tipo === 'ingreso'){
-ped.items.forEach(item => {
+// Aplicar solo el último ingreso — cant directamente, sin multiplicar
+ultimoIngreso.items.forEach(item => {
 const prod = db.productos.find(p=>p.id===item.prodId);
-if(prod) prod.stock += (item.cantUds || item.cant);
-});
-} else if(ped.tipo === 'salida'){
-ped.items.forEach(item => {
-const prod = db.productos.find(p=>p.id===item.prodId);
-if(prod) prod.stock -= (item.cantUds || item.cant);
-});
-}
+if(prod) prod.stock = item.cant; // directamente lo que ingresaste
 });
 
-(db.ventas||[]).filter(v=>!v.anulada).forEach(v => {
+// Restar ventas activas de hoy
+(db.ventas||[]).filter(v=>!v.anulada && v.fecha===hoyStr).forEach(v => {
 v.items.forEach(item => {
 const prod = db.productos.find(p=>p.id===item.prodId);
-if(prod) prod.stock -= (item.cantUds || item.cant);
+if(prod) prod.stock -= (item.cantUds||item.cant);
 });
 });
 
 saveDB();
 renderStock();
 renderResumenAdmin();
-toast('✅ Stock recalculado correctamente desde el historial', 'ok');
-document.getElementById('reinicio-status').innerHTML =
-'✅ <b>Stock recalculado.</b> Ahora refleja los ingresos de bodega menos las ventas activas.';
+const el = document.getElementById('reinicio-status');
+if(el) el.innerHTML = `✅ <b>Stock corregido</b> con el ingreso de las ${fmtHora(ultimoIngreso.timestamp)} (${ultimoIngreso.items?.length||0} productos). Verificá en Stock que los números sean correctos.`;
+toast(`✅ Stock corregido desde ingreso de hoy`, 'ok');
 }
 
 function reinicioTotalSistema(){
