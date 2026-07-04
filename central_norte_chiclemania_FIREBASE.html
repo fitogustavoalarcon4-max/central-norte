@@ -301,7 +301,75 @@
 </div>
 <div class="page" id="page-auditoria">
 <div class="page-title">Reportes y Auditoría</div>
-<div class="page-sub">Reportes de stock y ventas · Registro de productos nuevos</div>
+<div class="page-sub">Reportes de stock y ventas · Cuadre de caja · Registro de productos nuevos</div>
+
+<!-- Cuadre de caja en auditoría (misma herramienta, acceso directo) -->
+<div class="venta-form" style="margin-bottom:14px;border-color:rgba(249,115,22,.3)">
+<div class="venta-form-title">💰 Cuadre de Caja</div>
+<div style="font-size:12px;color:var(--txt3);margin-bottom:10px">Reporte de ventas por método de pago. Seleccioná período y métodos a incluir.</div>
+<div class="form-row" style="margin-bottom:8px">
+<div class="fgr">
+<label>Período</label>
+<select id="cdr-periodo-aud" onchange="onCdrPeriodoAudChange()">
+<option value="hoy">Hoy</option>
+<option value="semana">Esta semana</option>
+<option value="mes" selected>Este mes</option>
+<option value="anio">Este año</option>
+<option value="meses">Últimos N meses</option>
+<option value="rango">Rango personalizado</option>
+</select>
+</div>
+<div class="fgr" id="cdr-n-meses-aud-wrap" style="display:none">
+<label>N° de meses</label>
+<input type="number" id="cdr-n-meses-aud" min="1" max="24" value="3" style="font-family:'DM Mono',monospace">
+</div>
+</div>
+<div id="cdr-rango-aud-wrap" style="display:none">
+<div class="form-row" style="margin-bottom:8px">
+<div class="fgr">
+<label>Desde</label>
+<input type="date" id="cdr-desde-aud" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+</div>
+<div class="fgr">
+<label>Hasta</label>
+<input type="date" id="cdr-hasta-aud" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+</div>
+</div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px">
+<input type="checkbox" id="cdr-chk-ef-aud" checked style="accent-color:var(--acc)"> 💵 Efectivo
+</label>
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px">
+<input type="checkbox" id="cdr-chk-ta-aud" checked style="accent-color:var(--acc)"> 💳 Tarjeta
+</label>
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px">
+<input type="checkbox" id="cdr-chk-tr-aud" checked style="accent-color:var(--acc)"> 🏦 Transferencia
+</label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn btn-primary btn-sm" onclick="generarCuadreCajaAud()">📊 Generar</button>
+<button class="btn btn-success btn-sm" onclick="exportarCuadreExcelAud()">📊 Excel</button>
+<button class="btn btn-sec btn-sm" onclick="exportarCuadrePDFAud()">🖨️ PDF</button>
+</div>
+<div id="cdr-resultado-aud" style="display:none;margin-top:12px">
+<div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px" id="cdr-periodo-label-aud"></div>
+<div class="stats-row" id="cdr-stats-aud" style="margin-bottom:10px"></div>
+<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r2)">
+<thead><tr style="background:var(--bg3);border-bottom:1px solid var(--bdr)">
+<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--txt3)">Fecha</th>
+<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--txt3)">Cliente</th>
+<th style="padding:8px 10px;text-align:right;font-size:10px;color:#16a34a">💵 Efectivo</th>
+<th style="padding:8px 10px;text-align:right;font-size:10px;color:#2563eb">💳 Tarjeta</th>
+<th style="padding:8px 10px;text-align:right;font-size:10px;color:#7c3aed">🏦 Transf.</th>
+<th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--acc)">Total Q</th>
+</tr></thead>
+<tbody id="cdr-tabla-body-aud"></tbody>
+<tfoot id="cdr-tabla-foot-aud"></tfoot>
+</table></div>
+</div>
+</div>
+
 <div class="venta-form">
 <div class="venta-form-title">📦 Reporte de Stock Actual</div>
 <div style="font-size:12px;color:var(--txt3);margin-bottom:14px">Imprimí o exportá el inventario actual tal como está en el sistema ahora mismo.</div>
@@ -651,8 +719,92 @@
 <div class="page" id="page-reportes">
 <div class="page-title">📊 Reportes Avanzados</div>
 <div class="page-sub">Ventas por categoría, ranking y cuadre de caja</div>
+
+<!-- ══ CUADRE DE CAJA ══ -->
+<div class="venta-form" style="margin-bottom:14px;border-color:rgba(249,115,22,.3)">
+<div class="venta-form-title">💰 Reporte de Cuadre de Caja</div>
+<div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Generá el cuadre de ventas por período y método de pago. Disponible también en Auditoría.</div>
+
+<!-- Período -->
+<div class="form-row" style="margin-bottom:10px">
+<div class="fgr">
+<label>Período</label>
+<select id="cdr-periodo" onchange="onCdrPeriodoChange()">
+<option value="hoy">Hoy</option>
+<option value="semana">Esta semana</option>
+<option value="mes" selected>Este mes</option>
+<option value="anio">Este año</option>
+<option value="meses">Últimos N meses</option>
+<option value="rango">Rango personalizado</option>
+</select>
+</div>
+<div class="fgr" id="cdr-n-meses-wrap" style="display:none">
+<label>Cantidad de meses</label>
+<input type="number" id="cdr-n-meses" min="1" max="24" value="3" style="font-family:'DM Mono',monospace">
+</div>
+</div>
+
+<!-- Rango personalizado -->
+<div id="cdr-rango-wrap" style="display:none">
+<div class="form-row" style="margin-bottom:10px">
+<div class="fgr">
+<label>Desde</label>
+<input type="date" id="cdr-desde" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+</div>
+<div class="fgr">
+<label>Hasta</label>
+<input type="date" id="cdr-hasta" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);font-size:13px;padding:9px 12px;outline:none;width:100%">
+</div>
+</div>
+</div>
+
+<!-- Métodos de pago (multiselección) -->
+<div style="margin-bottom:12px">
+<div style="font-size:11px;color:var(--txt3);font-weight:600;margin-bottom:8px">Métodos de pago a incluir</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:8px 12px;font-size:13px">
+<input type="checkbox" id="cdr-chk-efectivo" checked style="accent-color:var(--acc);width:16px;height:16px"> 💵 Efectivo
+</label>
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:8px 12px;font-size:13px">
+<input type="checkbox" id="cdr-chk-tarjeta" checked style="accent-color:var(--acc);width:16px;height:16px"> 💳 Tarjeta/POS
+</label>
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:8px 12px;font-size:13px">
+<input type="checkbox" id="cdr-chk-transf" checked style="accent-color:var(--acc);width:16px;height:16px"> 🏦 Transferencia
+</label>
+</div>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+<button class="btn btn-primary btn-sm" onclick="generarCuadreCaja()">📊 Generar cuadre</button>
+<button class="btn btn-success btn-sm" onclick="exportarCuadreExcel()">📊 Excel</button>
+<button class="btn btn-sec btn-sm" onclick="exportarCuadrePDF()">🖨️ PDF</button>
+</div>
+
+<!-- Resultado del cuadre -->
+<div id="cdr-resultado" style="display:none">
+<div style="font-size:12px;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px" id="cdr-periodo-label"></div>
+<div class="stats-row" id="cdr-stats" style="margin-bottom:12px"></div>
+<div id="cdr-tabla-wrap" style="overflow-x:auto">
+<table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r2)">
+<thead><tr style="background:var(--bg3);border-bottom:1px solid var(--bdr)">
+<th style="padding:9px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Fecha</th>
+<th style="padding:9px 12px;text-align:left;font-size:10px;color:var(--txt3);text-transform:uppercase">Cliente</th>
+<th style="padding:9px 12px;text-align:right;font-size:10px;color:#16a34a;text-transform:uppercase">💵 Efectivo</th>
+<th style="padding:9px 12px;text-align:right;font-size:10px;color:#2563eb;text-transform:uppercase">💳 Tarjeta</th>
+<th style="padding:9px 12px;text-align:right;font-size:10px;color:#7c3aed;text-transform:uppercase">🏦 Transferencia</th>
+<th style="padding:9px 12px;text-align:right;font-size:10px;color:var(--txt3);text-transform:uppercase">N° Auth/Ref</th>
+<th style="padding:9px 12px;text-align:right;font-size:10px;color:var(--acc);text-transform:uppercase">Total Q</th>
+</tr></thead>
+<tbody id="cdr-tabla-body"></tbody>
+<tfoot id="cdr-tabla-foot"></tfoot>
+</table>
+</div>
+</div>
+</div>
+
+<!-- ══ REPORTES DE VENTAS (existente) ══ -->
 <div class="venta-form" style="margin-bottom:14px">
-<div class="venta-form-title">🔍 Filtros del reporte</div>
+<div class="venta-form-title">🔍 Filtros del reporte de ventas</div>
 <div class="form-row" style="margin-bottom:10px">
 <div class="fgr">
 <label>Período</label>
@@ -1405,14 +1557,15 @@ db.productos.forEach(p => {
 const n = p.nombre?.toLowerCase()||'';
 if(n.includes('regulador') && p.precio !== 170){ p.precio = 170; cambio = true; }
 if((n.includes('arcade') || (n.includes('juego') && n.includes('maquin'))) && p.precio !== 5800){ p.precio = 5800; cambio = true; }
-// Máquina Doble Cápsula Globo — stock a 0 (no existe en inventario real)
-if(n.includes('doble') && n.includes('glob') && p.stock !== 0){ p.stock = 0; cambio = true; }
+// Máquina Doble Cápsula/Capsula de Globo — forzar stock a 0 siempre
+if(n.includes('capsula') && n.includes('glob')){ p.stock = 0; cambio = true; }
+if(n.includes('cápsula') && n.includes('glob')){ p.stock = 0; cambio = true; }
+if(p.sku === 'MAQ-GLOB' && p.stock !== 0){ p.stock = 0; cambio = true; }
 });
 // Agregar Máquina Individual 1Q Globo si no existe
-const yaExiste = db.productos.some(p=>{
-const n = p.nombre?.toLowerCase()||'';
-return n.includes('individual') && n.includes('glob');
-});
+const yaExiste = db.productos.some(p=>
+p.sku==='MAQ-GLOB-1Q' || (p.nombre?.toLowerCase().includes('individual') && p.nombre?.toLowerCase().includes('glob'))
+);
 if(!yaExiste){
 db.productos.push({
 id:'PROD-MAQ-GLOB1Q-'+Date.now(),
@@ -3085,40 +3238,47 @@ if(_rolActual==='admin') renderResumenAdmin();
 }
 
 function _getVentasFiltradas(){
-// Fuente única de verdad para filtrar ventas en exportaciones
 const hoyStr = hoy();
 let ventas = [...db.ventas].filter(v=>!v.anulada);
-if(_histFiltro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
-else if(_histFiltro==='semana'){
+// Leer el filtro activo directamente
+const filtro = _histFiltro || 'hoy';
+if(filtro==='hoy') ventas = ventas.filter(v=>v.fecha===hoyStr);
+else if(filtro==='semana'){
 const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
 ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
-} else if(_histFiltro==='mes'){
+} else if(filtro==='mes'){
 const d = new Date();
 const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
 ventas = ventas.filter(v=>v.fecha>=inicioMes);
-} else if(_histFiltro==='rango'){
-// Leer directamente de los campos para asegurarse de tener el valor más reciente
+} else if(filtro==='rango'){
+// SIEMPRE leer de los campos DOM — son la fuente de verdad
 const desdeEl = document.getElementById('hist-desde');
 const hastaEl = document.getElementById('hist-hasta');
-const desde = desdeEl?.value || _histDesde || '';
-const hasta  = hastaEl?.value || _histHasta || '';
+const desde = (desdeEl?.value || _histDesde || '').trim();
+const hasta  = (hastaEl?.value || _histHasta || '').trim();
 if(desde) ventas = ventas.filter(v=>v.fecha>=desde);
 if(hasta)  ventas = ventas.filter(v=>v.fecha<=hasta);
+} else if(filtro==='todo'){
+// sin filtro
 }
 return ventas.sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
 }
 
 function _getPeriodoLabel(){
 const hoyStr = hoy();
-if(_histFiltro==='hoy') return 'Hoy '+fmtFecha(new Date().toISOString());
-if(_histFiltro==='semana') return 'Últimos 7 días';
-if(_histFiltro==='mes') return 'Este mes';
-if(_histFiltro==='rango'){
-const desde = document.getElementById('hist-desde')?.value || _histDesde || '';
-const hasta  = document.getElementById('hist-hasta')?.value || _histHasta || '';
-return (desde?fmtFecha(desde+'T00:00:00'):'inicio') + ' → ' + (hasta?fmtFecha(hasta+'T00:00:00'):'hoy');
+const filtro = _histFiltro || 'hoy';
+if(filtro==='hoy') return 'Hoy '+fmtFecha(new Date().toISOString());
+if(filtro==='semana') return 'Últimos 7 días';
+if(filtro==='mes') return 'Este mes';
+if(filtro==='todo') return 'Todas las ventas';
+if(filtro==='rango'){
+const desde = (document.getElementById('hist-desde')?.value || _histDesde || '').trim();
+const hasta  = (document.getElementById('hist-hasta')?.value || _histHasta || '').trim();
+const desdeLabel = desde ? fmtFecha(desde+'T12:00:00') : 'inicio';
+const hastaLabel  = hasta  ? fmtFecha(hasta+'T12:00:00')  : 'hoy';
+return desdeLabel + ' → ' + hastaLabel;
 }
-return 'Todas las ventas';
+return 'Ventas';
 }
 
 function _getPagosMonto(v, metodo){
@@ -5964,35 +6124,247 @@ return '<div class="admin-card" style="margin-bottom:8px">'
 }).join('');
 }
 
-function exportarCajaExcel(){
-const datos = _cajaUltDatos || getCajaRango();
-if(!datos.ventas || !datos.ventas.length){ toast('Sin ventas en este período','err'); return; }
-const wb = XLSX.utils.book_new();
+// ════════════════════════════════════════════════════
+//  CUADRE DE CAJA — REPORTE MULTIPAGOS
+// ════════════════════════════════════════════════════
+function _getCdrRango(prefijo){
+const p = prefijo||'';
+const periodo = document.getElementById('cdr-periodo'+p)?.value || 'mes';
+const hoyStr = hoy();
+let desde = '', hasta = hoyStr;
 
-const resumen = [{
-'Período': datos.label,
-'Total vendido Q': datos.totalVentas.toFixed(2),
-'Transacciones': datos.nVentas,
-'Efectivo Q': datos.totalEfectivo.toFixed(2),
-'Tarjeta Q': datos.totalTarjeta.toFixed(2),
-'Transferencia Q': datos.totalTransferencia.toFixed(2),
-'Descuentos Q': datos.descuentos.toFixed(2),
-}];
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
-
-const detalle = datos.ventas.map(v=>({
-'Fecha': fmtFecha(v.timestamp), 'Hora': fmtHora(v.timestamp),
-'Venta ID': v.id, 'Cliente': v.cliente||'CF', 'NIT': v.nit||'CF',
-'Método pago': v.metodoPago||'efectivo',
-'N° Autorización/Ref': v.numAuth||v.numTransf||'',
-'Total Q': v.total.toFixed(2), 'Descuento Q': (v.descuento||0).toFixed(2),
-'Vendedor': v.vendedor==='admin'?'Admin':'Rosmery Archila',
-}));
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle ventas');
-
-XLSX.writeFile(wb, 'caja_central_norte_'+hoy()+'.xlsx');
-toast('✅ Excel de caja exportado');
+if(periodo==='hoy'){ desde = hasta = hoyStr; }
+else if(periodo==='semana'){
+const d=new Date(); d.setDate(d.getDate()-6);
+desde = d.toISOString().slice(0,10);
+} else if(periodo==='mes'){
+const d=new Date();
+desde = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
+} else if(periodo==='anio'){
+const d=new Date(); desde = d.getFullYear()+'-01-01';
+} else if(periodo==='meses'){
+const n = parseInt(document.getElementById('cdr-n-meses'+p)?.value)||3;
+const d=new Date(); d.setMonth(d.getMonth()-n);
+desde = d.toISOString().slice(0,10);
+} else if(periodo==='rango'){
+desde = document.getElementById('cdr-desde'+p)?.value || '';
+hasta  = document.getElementById('cdr-hasta'+p)?.value || hoyStr;
 }
+
+const inclEf = document.getElementById('cdr-chk-'+(p?'ef-':'')+'efectivo'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-ef'+p)?.checked ?? true;
+const inclTa = document.getElementById('cdr-chk-'+(p?'ta-':'')+'tarjeta'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-ta'+p)?.checked ?? true;
+const inclTr = document.getElementById('cdr-chk-'+(p?'tr-':'')+'transf'+(!p?'':'-aud'))?.checked ?? document.getElementById('cdr-chk-tr'+p)?.checked ?? true;
+
+let ventas = [...(db.ventas||[])].filter(v=>!v.anulada);
+if(desde) ventas = ventas.filter(v=>v.fecha>=desde);
+if(hasta)  ventas = ventas.filter(v=>v.fecha<=hasta);
+
+// Filtrar por métodos seleccionados
+ventas = ventas.filter(v=>{
+const ef = _getPagosMonto(v,'efectivo')>0;
+const ta = _getPagosMonto(v,'tarjeta')>0;
+const tr = _getPagosMonto(v,'transferencia')>0;
+if(ef && inclEf) return true;
+if(ta && inclTa) return true;
+if(tr && inclTr) return true;
+// Si ningún método coincide con el filtro, excluir
+return false;
+});
+
+ventas.sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+
+const periodoLabels = {
+hoy:'Hoy '+fmtFecha(new Date().toISOString()),
+semana:'Esta semana',
+mes:'Este mes',
+anio:'Este año',
+meses:'Últimos '+(document.getElementById('cdr-n-meses'+p)?.value||3)+' meses',
+rango:(desde?fmtFecha(desde+'T12:00:00'):'inicio')+' → '+(hasta?fmtFecha(hasta+'T12:00:00'):'hoy'),
+};
+const label = periodoLabels[periodo]||'';
+const metodosLabel = [inclEf?'💵 Efectivo':'',inclTa?'💳 Tarjeta':'',inclTr?'🏦 Transferencia':''].filter(Boolean).join(' · ');
+
+return { ventas, desde, hasta, label, inclEf, inclTa, inclTr, metodosLabel };
+}
+
+function _renderCuadreResultado(datos, sufijo){
+const s = sufijo||'';
+const { ventas, label, inclEf, inclTa, inclTr, metodosLabel } = datos;
+
+const totEf = ventas.reduce((s,v)=>s+_getPagosMonto(v,'efectivo'),0);
+const totTa = ventas.reduce((s,v)=>s+_getPagosMonto(v,'tarjeta'),0);
+const totTr = ventas.reduce((s,v)=>s+_getPagosMonto(v,'transferencia'),0);
+const totGen = ventas.reduce((s,v)=>s+v.total,0);
+
+const labelEl = document.getElementById('cdr-periodo-label'+s);
+if(labelEl) labelEl.innerHTML = label + ' <span style="color:var(--txt3);font-weight:400;font-size:11px">· '+metodosLabel+'</span>';
+
+const statsEl = document.getElementById('cdr-stats'+s);
+if(statsEl) statsEl.innerHTML =
+(inclEf?`<div class="stat-card"><div class="stat-label">💵 Efectivo</div><div class="stat-val" style="color:#16a34a">Q${totEf.toFixed(2)}</div></div>`:'')+
+(inclTa?`<div class="stat-card"><div class="stat-label">💳 Tarjeta</div><div class="stat-val" style="color:#2563eb">Q${totTa.toFixed(2)}</div></div>`:'')+
+(inclTr?`<div class="stat-card"><div class="stat-label">🏦 Transferencia</div><div class="stat-val" style="color:#7c3aed">Q${totTr.toFixed(2)}</div></div>`:'')+
+`<div class="stat-card"><div class="stat-label">📊 Total</div><div class="stat-val" style="color:var(--acc)">Q${totGen.toFixed(2)}</div><div class="stat-note">${ventas.length} ventas</div></div>`;
+
+const bodyEl = document.getElementById('cdr-tabla-body'+s);
+const footEl = document.getElementById('cdr-tabla-foot'+s);
+
+if(bodyEl) bodyEl.innerHTML = ventas.map((v,i)=>{
+const ef = _getPagosMonto(v,'efectivo');
+const ta = _getPagosMonto(v,'tarjeta');
+const tr = _getPagosMonto(v,'transferencia');
+const ref = v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
+const bg = i%2===0?'':'background:var(--bg3)';
+return `<tr style="${bg}">
+<td style="padding:7px 10px;font-size:11px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:var(--acc);font-size:10px">${fmtHora(v.timestamp)}</span></td>
+<td style="padding:7px 10px;font-size:11px">${v.cliente||'CF'}</td>
+<td style="padding:7px 10px;font-size:11px;text-align:right;color:${ef>0?'#16a34a':'var(--txt3)'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
+<td style="padding:7px 10px;font-size:11px;text-align:right;color:${ta>0?'#2563eb':'var(--txt3)'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
+<td style="padding:7px 10px;font-size:11px;text-align:right;color:${tr>0?'#7c3aed':'var(--txt3)'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
+<td style="padding:7px 10px;font-size:10px;color:var(--txt3);max-width:100px;overflow:hidden;text-overflow:ellipsis">${ref}</td>
+<td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:700;color:var(--acc)">Q${v.total.toFixed(2)}</td>
+</tr>`;
+}).join('');
+
+if(footEl) footEl.innerHTML = `<tr style="background:var(--bg3);border-top:2px solid var(--acc)">
+<td colspan="2" style="padding:9px 10px;font-weight:700;font-size:12px">${ventas.length} ventas</td>
+<td style="padding:9px 10px;text-align:right;font-weight:800;color:#16a34a">${inclEf?'Q'+totEf.toFixed(2):''}</td>
+<td style="padding:9px 10px;text-align:right;font-weight:800;color:#2563eb">${inclTa?'Q'+totTa.toFixed(2):''}</td>
+<td style="padding:9px 10px;text-align:right;font-weight:800;color:#7c3aed">${inclTr?'Q'+totTr.toFixed(2):''}</td>
+<td></td>
+<td style="padding:9px 10px;text-align:right;font-weight:800;font-size:14px;color:var(--acc)">Q${totGen.toFixed(2)}</td>
+</tr>`;
+
+document.getElementById('cdr-resultado'+s).style.display='block';
+return { totEf,totTa,totTr,totGen,ventas };
+}
+
+function generarCuadreCaja(){ const d=_getCdrRango(''); _renderCuadreResultado(d,''); }
+function generarCuadreCajaAud(){ const d=_getCdrRango('-aud'); _renderCuadreResultado(d,'-aud'); }
+
+function onCdrPeriodoChange(){
+const v=document.getElementById('cdr-periodo')?.value;
+document.getElementById('cdr-n-meses-wrap').style.display=v==='meses'?'block':'none';
+document.getElementById('cdr-rango-wrap').style.display=v==='rango'?'block':'none';
+}
+function onCdrPeriodoAudChange(){
+const v=document.getElementById('cdr-periodo-aud')?.value;
+document.getElementById('cdr-n-meses-aud-wrap').style.display=v==='meses'?'block':'none';
+document.getElementById('cdr-rango-aud-wrap').style.display=v==='rango'?'block':'none';
+}
+
+function _exportarCuadreExcelBase(sufijo){
+const datos = _getCdrRango(sufijo);
+const r = _renderCuadreResultado(datos, sufijo);
+if(!r.ventas.length){ toast('Sin ventas en este período','err'); return; }
+const wb = XLSX.utils.book_new();
+// Resumen
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+{' ':datos.label,'Métodos':datos.metodosLabel},
+{'Método':'💵 Efectivo','Total Q':r.totEf.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length},
+{'Método':'💳 Tarjeta/POS','Total Q':r.totTa.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'tarjeta')>0).length},
+{'Método':'🏦 Transferencia','Total Q':r.totTr.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'transferencia')>0).length},
+{'Método':'📊 TOTAL','Total Q':r.totGen.toFixed(2),'Transacciones':r.ventas.length},
+]),'Resumen cuadre');
+// Detalle
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.ventas.map(v=>({
+'Fecha':fmtFecha(v.timestamp),'Hora':fmtHora(v.timestamp),
+'Cliente':v.cliente||'CF','NIT':v.nit||'CF',
+'Productos':v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', '),
+'Efectivo Q':_getPagosMonto(v,'efectivo').toFixed(2),
+'Tarjeta/POS Q':_getPagosMonto(v,'tarjeta').toFixed(2),
+'Transferencia Q':_getPagosMonto(v,'transferencia').toFixed(2),
+'N° Auth/Ref':v.numAuth||v.numTransf||'',
+'Total Q':v.total.toFixed(2),
+}))),'Detalle ventas');
+XLSX.writeFile(wb,`cuadre_caja_${hoy()}.xlsx`);
+toast('✅ Excel exportado');
+}
+
+function exportarCuadreExcel(){ _exportarCuadreExcelBase(''); }
+function exportarCuadreExcelAud(){ _exportarCuadreExcelBase('-aud'); }
+
+function _exportarCuadrePDFBase(sufijo){
+const datos = _getCdrRango(sufijo);
+const r = _renderCuadreResultado(datos, sufijo);
+if(!r.ventas.length){ toast('Sin ventas en este período','err'); return; }
+const { ventas, label, metodosLabel, inclEf, inclTa, inclTr } = datos;
+
+const rows = ventas.map((v,i)=>{
+const ef=_getPagosMonto(v,'efectivo'), ta=_getPagosMonto(v,'tarjeta'), tr=_getPagosMonto(v,'transferencia');
+const ref=v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
+return `<tr style="background:${i%2===0?'#fff':'#f8faff'}">
+<td style="padding:5px 8px;font-size:10px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:#f97316">${fmtHora(v.timestamp)}</span></td>
+<td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}<br><span style="color:#888;font-size:9px">${v.nit||'CF'}</span></td>
+<td style="padding:5px 8px;font-size:10px;text-align:right;color:${ef>0?'#16a34a':'#ccc'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
+<td style="padding:5px 8px;font-size:10px;text-align:right;color:${ta>0?'#2563eb':'#ccc'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
+<td style="padding:5px 8px;font-size:10px;text-align:right;color:${tr>0?'#7c3aed':'#ccc'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
+<td style="padding:5px 8px;font-size:9px;color:#888">${ref}</td>
+<td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#f97316">Q${v.total.toFixed(2)}</td>
+</tr>`;
+}).join('');
+
+const w=window.open('','_blank','width=1000,height=800');
+w.document.write(`<!DOCTYPE html><html><head><title>Cuadre de Caja</title>
+<style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:20px;color:#111;font-size:12px}
+.header{display:flex;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:10px;margin-bottom:14px}
+.empresa{font-size:17px;font-weight:800;color:#f97316}.sub{font-size:10px;color:#888}
+.resumen{display:flex;gap:0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.rbox{flex:1;padding:10px;text-align:center;border-right:1px solid #e5e7eb}.rbox:last-child{border-right:none}
+.rbox-l{font-size:9px;color:#888;text-transform:uppercase;margin-bottom:3px}.rbox-v{font-size:16px;font-weight:800}
+.rbox-n{font-size:9px;color:#888;margin-top:2px}
+table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:7px 8px;font-size:9px;text-align:left}
+th.r{text-align:right}tfoot td{background:#fff8f0;font-weight:700;border-top:2px solid #f97316}
+.firma{display:flex;gap:50px;margin-top:28px}.firma-box{flex:1;border-top:1px solid #333;text-align:center;padding-top:5px;font-size:10px;color:#666}
+.footer{text-align:center;margin-top:14px;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:8px}
+@media print{.np{display:none}}</style>
+</head><body>
+<div class="header">
+<div><div style="font-size:22px">🍬</div><div class="empresa">ChicleManía S.A.</div><div class="sub">NIT: 12044610-3 · Central Norte</div></div>
+<div style="text-align:right">
+<div style="font-size:14px;font-weight:800">CUADRE DE CAJA</div>
+<div class="sub">Período: <b>${label}</b></div>
+<div class="sub">Métodos: ${metodosLabel}</div>
+<div class="sub">Generado: ${new Date().toLocaleString('es-GT')}</div>
+<div class="sub">Por: ${_rolActual==='admin'?'Admin':'Rosmery Archila'}</div>
+</div>
+</div>
+<div class="resumen">
+${inclEf?`<div class="rbox" style="background:#f0fdf4"><div class="rbox-l">💵 Efectivo</div><div class="rbox-v" style="color:#16a34a">Q${r.totEf.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length} trans.</div></div>`:''}
+${inclTa?`<div class="rbox" style="background:#eff6ff"><div class="rbox-l">💳 Tarjeta/POS</div><div class="rbox-v" style="color:#2563eb">Q${r.totTa.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'tarjeta')>0).length} trans.</div></div>`:''}
+${inclTr?`<div class="rbox" style="background:#faf5ff"><div class="rbox-l">🏦 Transferencia</div><div class="rbox-v" style="color:#7c3aed">Q${r.totTr.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'transferencia')>0).length} trans.</div></div>`:''}
+<div class="rbox" style="background:#fff8f0;border-left:3px solid #f97316"><div class="rbox-l">📊 TOTAL GENERAL</div><div class="rbox-v" style="color:#f97316;font-size:18px">Q${r.totGen.toFixed(2)}</div><div class="rbox-n">${ventas.length} ventas</div></div>
+</div>
+<table><thead><tr>
+<th>Fecha/Hora</th><th>Cliente</th>
+${inclEf?'<th class="r" style="background:#16a34a">💵 Efectivo</th>':''}
+${inclTa?'<th class="r" style="background:#2563eb">💳 Tarjeta</th>':''}
+${inclTr?'<th class="r" style="background:#7c3aed">🏦 Transferencia</th>':''}
+<th>N° Autorización</th><th class="r" style="background:#b45309">Total Q</th>
+</tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr>
+<td colspan="2" style="padding:8px">TOTALES — ${ventas.length} venta${ventas.length!==1?'s':''}</td>
+${inclEf?`<td style="padding:8px;text-align:right;color:#16a34a">Q${r.totEf.toFixed(2)}</td>`:''}
+${inclTa?`<td style="padding:8px;text-align:right;color:#2563eb">Q${r.totTa.toFixed(2)}</td>`:''}
+${inclTr?`<td style="padding:8px;text-align:right;color:#7c3aed">Q${r.totTr.toFixed(2)}</td>`:''}
+<td></td><td style="padding:8px;text-align:right;color:#f97316;font-size:13px">Q${r.totGen.toFixed(2)}</td>
+</tr></tfoot>
+</table>
+<div class="firma">
+<div class="firma-box">Vendedor: Rosmery Archila</div>
+<div class="firma-box">Visto bueno Administrador</div>
+</div>
+<div class="footer">ChicleManía S.A. · NIT 12044610-3 · Central Norte</div>
+<div class="np" style="margin-top:16px;text-align:center">
+<button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+</div></body></html>`);
+w.document.close();
+}
+
+function exportarCuadrePDF(){ _exportarCuadrePDFBase(''); }
+function exportarCuadrePDFAud(){ _exportarCuadrePDFBase('-aud'); }
+
 
 function exportarCajaPDF(){
 const datos = _cajaUltDatos || getCajaRango();
