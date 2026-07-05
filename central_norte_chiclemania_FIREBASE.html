@@ -6144,323 +6144,296 @@ return '<div class="admin-card" style="margin-bottom:8px">'
 // ════════════════════════════════════════════════════
 //  CUADRE DE CAJA — REPORTE MULTIPAGOS
 // ════════════════════════════════════════════════════
-function _getCdrRango(prefijo){
-const isAud = prefijo === '-aud';
-const hoyStr = hoy();
 
-// IDs específicos según sección
-const periodoId   = isAud ? 'cdr-periodo-aud'   : 'cdr-periodo';
-const nMesesId    = isAud ? 'cdr-n-meses-aud'   : 'cdr-n-meses';
-const desdeId     = isAud ? 'cdr-desde-aud'     : 'cdr-desde';
-const hastaId     = isAud ? 'cdr-hasta-aud'     : 'cdr-hasta';
-const chkEfId     = isAud ? 'cdr-chk-ef-aud'   : 'cdr-chk-efectivo';
-const chkTaId     = isAud ? 'cdr-chk-ta-aud'   : 'cdr-chk-tarjeta';
-const chkTrId     = isAud ? 'cdr-chk-tr-aud'   : 'cdr-chk-transf';
+// Cache de los últimos datos calculados (se usa para PDF/Excel sin releer el DOM)
+let _cdrCache = null;
 
-const periodo = document.getElementById(periodoId)?.value || 'mes';
-let desde = '', hasta = hoyStr;
+function _getCdrDatos(sufijo){
+  const isAud = sufijo === '-aud';
+  const periodoId = isAud ? 'cdr-periodo-aud' : 'cdr-periodo';
+  const desdeId   = isAud ? 'cdr-desde-aud'   : 'cdr-desde';
+  const hastaId   = isAud ? 'cdr-hasta-aud'   : 'cdr-hasta';
+  const nMesesId  = isAud ? 'cdr-n-meses-aud' : 'cdr-n-meses';
+  const chkEfId   = isAud ? 'cdr-chk-ef-aud'  : 'cdr-chk-efectivo';
+  const chkTaId   = isAud ? 'cdr-chk-ta-aud'  : 'cdr-chk-tarjeta';
+  const chkTrId   = isAud ? 'cdr-chk-tr-aud'  : 'cdr-chk-transf';
 
-if(periodo==='hoy'){
-  desde = hasta = hoyStr;
-} else if(periodo==='semana'){
-  const d=new Date(); d.setDate(d.getDate()-6);
-  desde = d.toISOString().slice(0,10);
-} else if(periodo==='mes'){
-  const d=new Date();
-  desde = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
-} else if(periodo==='anio'){
-  const d=new Date(); desde = d.getFullYear()+'-01-01';
-} else if(periodo==='meses'){
-  const n = parseInt(document.getElementById(nMesesId)?.value)||3;
-  const d=new Date(); d.setMonth(d.getMonth()-n);
-  desde = d.toISOString().slice(0,10);
-} else if(periodo==='rango'){
-  desde = document.getElementById(desdeId)?.value || '';
-  hasta  = document.getElementById(hastaId)?.value || hoyStr;
+  const periodo = document.getElementById(periodoId)?.value || 'mes';
+  const hoyStr  = hoy();
+  let desde = '', hasta = hoyStr;
+
+  if(periodo === 'hoy'){
+    desde = hasta = hoyStr;
+  } else if(periodo === 'semana'){
+    const d = new Date(); d.setDate(d.getDate()-6);
+    desde = hoy.call({}, d); // usar función local
+    const dd = d; const y=dd.getFullYear(), m=String(dd.getMonth()+1).padStart(2,'0'), di=String(dd.getDate()).padStart(2,'0');
+    desde = y+'-'+m+'-'+di;
+  } else if(periodo === 'mes'){
+    const d = new Date();
+    desde = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+  } else if(periodo === 'anio'){
+    desde = new Date().getFullYear()+'-01-01';
+  } else if(periodo === 'meses'){
+    const n = parseInt(document.getElementById(nMesesId)?.value)||3;
+    const d = new Date(); d.setMonth(d.getMonth()-n);
+    desde = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  } else if(periodo === 'rango'){
+    desde = document.getElementById(desdeId)?.value || '';
+    hasta  = document.getElementById(hastaId)?.value  || hoyStr;
+  }
+
+  const inclEf = document.getElementById(chkEfId)?.checked !== false;
+  const inclTa = document.getElementById(chkTaId)?.checked !== false;
+  const inclTr = document.getElementById(chkTrId)?.checked !== false;
+
+  // Filtrar ventas usando v.fecha (campo guardado en Firebase)
+  let ventas = (db.ventas||[]).filter(v => !v.anulada);
+  if(desde) ventas = ventas.filter(v => (v.fecha||'') >= desde);
+  if(hasta)  ventas = ventas.filter(v => (v.fecha||'') <= hasta);
+
+  // Filtrar por métodos
+  ventas = ventas.filter(v => {
+    const ef = _getPagosMonto(v,'efectivo') > 0;
+    const ta = _getPagosMonto(v,'tarjeta')  > 0;
+    const tr = _getPagosMonto(v,'transferencia') > 0;
+    const ninguno = !ef && !ta && !tr;
+    if(ninguno && inclEf) return true;
+    if(ef && inclEf) return true;
+    if(ta && inclTa) return true;
+    if(tr && inclTr) return true;
+    return false;
+  });
+
+  ventas.sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+
+  // Calcular totales
+  const totSubtotal   = ventas.reduce((s,v)=>s+(v.subtotal||v.total),0);
+  const totDescuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0);
+  const totEf = ventas.reduce((s,v)=>s+_getPagosMonto(v,'efectivo'),0);
+  const totTa = ventas.reduce((s,v)=>s+_getPagosMonto(v,'tarjeta'),0);
+  const totTr = ventas.reduce((s,v)=>s+_getPagosMonto(v,'transferencia'),0);
+  const totCobrado = (inclEf?totEf:0)+(inclTa?totTa:0)+(inclTr?totTr:0);
+
+  const periodoLabels = {
+    hoy: 'Hoy '+fmtFecha(new Date().toISOString()),
+    semana: 'Últimos 7 días',
+    mes: 'Este mes',
+    anio: 'Este año',
+    meses: 'Últimos '+(document.getElementById(nMesesId)?.value||3)+' meses',
+    rango: (desde?fmtFecha(desde+'T12:00:00'):'inicio')+' → '+(hasta?fmtFecha(hasta+'T12:00:00'):'hoy'),
+  };
+
+  const metodosLabel = [inclEf?'💵 Efectivo':'',inclTa?'💳 Tarjeta':'',inclTr?'🏦 Transferencia':''].filter(Boolean).join(' · ');
+
+  return {
+    ventas, desde, hasta, periodo,
+    label: periodoLabels[periodo]||'',
+    metodosLabel,
+    inclEf, inclTa, inclTr,
+    totEf, totTa, totTr, totCobrado,
+    totSubtotal, totDescuentos,
+  };
 }
 
-const inclEf = document.getElementById(chkEfId)?.checked ?? true;
-const inclTa = document.getElementById(chkTaId)?.checked ?? true;
-const inclTr = document.getElementById(chkTrId)?.checked ?? true;
-
-let ventas = [...(db.ventas||[])].filter(v=>!v.anulada);
-
-// Aplicar filtro de fecha — SIEMPRE
-if(desde) ventas = ventas.filter(v => fechaLocal(v.timestamp) >= desde);
-if(hasta)  ventas = ventas.filter(v => fechaLocal(v.timestamp) <= hasta);
-
-// Filtrar por métodos seleccionados
-ventas = ventas.filter(v=>{
-  const ef = _getPagosMonto(v,'efectivo') > 0;
-  const ta = _getPagosMonto(v,'tarjeta')  > 0;
-  const tr = _getPagosMonto(v,'transferencia') > 0;
-  // Incluir si al menos uno de los métodos seleccionados aplica
-  // Si no tiene pagos registrados, tratarlo como efectivo
-  const sinPagos = !ef && !ta && !tr;
-  if(sinPagos && inclEf) return true;
-  if(ef && inclEf) return true;
-  if(ta && inclTa) return true;
-  if(tr && inclTr) return true;
-  return false;
-});
-
-ventas.sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
-
-const periodoLabels = {
-  hoy: 'Hoy '+fmtFecha(new Date().toISOString()),
-  semana: 'Esta semana',
-  mes: 'Este mes',
-  anio: 'Este año',
-  meses: 'Últimos '+(document.getElementById(nMesesId)?.value||3)+' meses',
-  rango: (desde ? fmtFecha(desde+'T12:00:00') : 'inicio') + ' → ' + (hasta ? fmtFecha(hasta+'T12:00:00') : 'hoy'),
-};
-const label = periodoLabels[periodo] || '';
-const metodosLabel = [inclEf?'💵 Efectivo':'', inclTa?'💳 Tarjeta':'', inclTr?'🏦 Transferencia':''].filter(Boolean).join(' · ');
-
-return { ventas, desde, hasta, label, inclEf, inclTa, inclTr, metodosLabel };
+function generarCuadreCaja(){
+  _cdrCache = _getCdrDatos('');
+  _mostrarCuadreEnPantalla(_cdrCache, '');
+}
+function generarCuadreCajaAud(){
+  _cdrCache = _getCdrDatos('-aud');
+  _mostrarCuadreEnPantalla(_cdrCache, '-aud');
 }
 
+function _mostrarCuadreEnPantalla(d, s){
+  const labelEl = document.getElementById('cdr-periodo-label'+s);
+  if(labelEl) labelEl.innerHTML = d.label+' <span style="color:var(--txt3);font-weight:400;font-size:11px">· '+d.metodosLabel+'</span>';
 
-function _renderCuadreResultado(datos, sufijo){
-const s = sufijo||'';
-const { ventas, label, inclEf, inclTa, inclTr, metodosLabel } = datos;
+  const statsEl = document.getElementById('cdr-stats'+s);
+  if(statsEl) statsEl.innerHTML =
+    (d.inclEf?`<div class="stat-card"><div class="stat-label">💵 Efectivo</div><div class="stat-val" style="color:#16a34a">Q${d.totEf.toFixed(2)}</div><div class="stat-note">${d.ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length} trans.</div></div>`:'')+
+    (d.inclTa?`<div class="stat-card"><div class="stat-label">💳 Tarjeta</div><div class="stat-val" style="color:#2563eb">Q${d.totTa.toFixed(2)}</div></div>`:'')+
+    (d.inclTr?`<div class="stat-card"><div class="stat-label">🏦 Transf.</div><div class="stat-val" style="color:#7c3aed">Q${d.totTr.toFixed(2)}</div></div>`:'')+
+    (d.totDescuentos>0?`<div class="stat-card"><div class="stat-label">🏷️ Descuentos</div><div class="stat-val" style="color:#d97706">-Q${d.totDescuentos.toFixed(2)}</div></div>`:'')+
+    `<div class="stat-card" style="border-color:var(--acc)"><div class="stat-label">📊 Total cobrado</div><div class="stat-val" style="color:var(--acc)">Q${d.totCobrado.toFixed(2)}</div><div class="stat-note">${d.ventas.length} ventas</div></div>`;
 
-// Calcular todos los totales
-const totSubtotal   = ventas.reduce((s,v)=>s+(v.subtotal||v.total),0);
-const totDescuentos = ventas.reduce((s,v)=>s+Math.max(0,v.descuento||0),0);
-const totEf = ventas.reduce((s,v)=>s+_getPagosMonto(v,'efectivo'),0);
-const totTa = ventas.reduce((s,v)=>s+_getPagosMonto(v,'tarjeta'),0);
-const totTr = ventas.reduce((s,v)=>s+_getPagosMonto(v,'transferencia'),0);
-// Total cobrado = suma de SOLO los métodos incluidos en el filtro
-const totCobrado = (inclEf?totEf:0) + (inclTa?totTa:0) + (inclTr?totTr:0);
-const totGen = totCobrado; // siempre igual al cobrado para que haga match
+  const bodyEl = document.getElementById('cdr-tabla-body'+s);
+  if(bodyEl) bodyEl.innerHTML = d.ventas.map((v,i)=>{
+    const ef=_getPagosMonto(v,'efectivo'), ta=_getPagosMonto(v,'tarjeta'), tr=_getPagosMonto(v,'transferencia');
+    const cobrado = ef+ta+tr || v.total;
+    const sub = v.subtotal||v.total;
+    const desc = Math.max(0,v.descuento||0);
+    const ref = v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
+    const bg = i%2===0?'':'background:var(--bg3)';
+    const totalCell = desc>0
+      ? `<span style="text-decoration:line-through;color:var(--txt3);font-size:10px">Q${sub.toFixed(2)}</span><br><span style="color:#d97706;font-size:9px">-Q${desc.toFixed(2)}</span><br><b>Q${cobrado.toFixed(2)}</b>`
+      : `Q${cobrado.toFixed(2)}`;
+    return `<tr style="${bg}">
+      <td style="padding:7px 10px;font-size:11px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:var(--acc);font-size:10px">${fmtHora(v.timestamp)}</span></td>
+      <td style="padding:7px 10px;font-size:11px">${v.cliente||'CF'}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:right;color:${ef>0?'#16a34a':'var(--txt3)'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:right;color:${ta>0?'#2563eb':'var(--txt3)'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:right;color:${tr>0?'#7c3aed':'var(--txt3)'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
+      <td style="padding:7px 10px;font-size:10px;color:var(--txt3)">${ref}</td>
+      <td style="padding:7px 10px;font-size:11px;text-align:right;line-height:1.5">${totalCell}</td>
+    </tr>`;
+  }).join('');
 
-const labelEl = document.getElementById('cdr-periodo-label'+s);
-if(labelEl) labelEl.innerHTML = label + ' <span style="color:var(--txt3);font-weight:400;font-size:11px">· '+metodosLabel+'</span>';
+  const footEl = document.getElementById('cdr-tabla-foot'+s);
+  if(footEl) footEl.innerHTML =
+    (d.totDescuentos>0?`<tr style="background:var(--bg3)"><td colspan="6" style="padding:7px 10px;font-size:11px;color:var(--txt3)">Precio de lista antes de descuentos</td><td style="padding:7px 10px;text-align:right;font-size:11px;color:var(--txt3)">Q${d.totSubtotal.toFixed(2)}</td></tr>`+
+    `<tr style="background:#fffbeb"><td colspan="6" style="padding:7px 10px;font-size:11px;font-weight:600;color:#d97706">🏷️ Total descuentos</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:#d97706">-Q${d.totDescuentos.toFixed(2)}</td></tr>`:'')+
+    `<tr style="background:var(--bg3);border-top:2px solid var(--acc)">
+      <td colspan="2" style="padding:9px 10px;font-weight:700;font-size:12px">${d.ventas.length} ventas · Total cobrado</td>
+      <td style="padding:9px 10px;text-align:right;font-weight:800;color:#16a34a">${d.inclEf?'Q'+d.totEf.toFixed(2):''}</td>
+      <td style="padding:9px 10px;text-align:right;font-weight:800;color:#2563eb">${d.inclTa?'Q'+d.totTa.toFixed(2):''}</td>
+      <td style="padding:9px 10px;text-align:right;font-weight:800;color:#7c3aed">${d.inclTr?'Q'+d.totTr.toFixed(2):''}</td>
+      <td></td>
+      <td style="padding:9px 10px;text-align:right;font-weight:800;font-size:15px;color:var(--acc)">Q${d.totCobrado.toFixed(2)}</td>
+    </tr>`;
 
-const statsEl = document.getElementById('cdr-stats'+s);
-if(statsEl) statsEl.innerHTML =
-(inclEf?`<div class="stat-card"><div class="stat-label">💵 Efectivo</div><div class="stat-val" style="color:#16a34a">Q${totEf.toFixed(2)}</div></div>`:'')+
-(inclTa?`<div class="stat-card"><div class="stat-label">💳 Tarjeta</div><div class="stat-val" style="color:#2563eb">Q${totTa.toFixed(2)}</div></div>`:'')+
-(inclTr?`<div class="stat-card"><div class="stat-label">🏦 Transf.</div><div class="stat-val" style="color:#7c3aed">Q${totTr.toFixed(2)}</div></div>`:'')+
-(totDescuentos>0?`<div class="stat-card"><div class="stat-label">🏷️ Descuentos</div><div class="stat-val" style="color:#d97706">-Q${totDescuentos.toFixed(2)}</div></div>`:'')+
-`<div class="stat-card" style="border-color:var(--acc)"><div class="stat-label">📊 Total cobrado</div><div class="stat-val" style="color:var(--acc)">Q${totCobrado.toFixed(2)}</div><div class="stat-note">${ventas.length} ventas</div></div>`;
-
-const bodyEl = document.getElementById('cdr-tabla-body'+s);
-const footEl = document.getElementById('cdr-tabla-foot'+s);
-
-if(bodyEl) bodyEl.innerHTML = ventas.map((v,i)=>{
-const ef = _getPagosMonto(v,'efectivo');
-const ta = _getPagosMonto(v,'tarjeta');
-const tr = _getPagosMonto(v,'transferencia');
-const subtotal = v.subtotal || v.total;
-const descuento = Math.max(0, v.descuento||0);
-const cobrado = ef+ta+tr || v.total;
-const ref = v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
-const bg = i%2===0?'':'background:var(--bg3)';
-// Mostrar precio de lista tachado si hay descuento
-const totalCell = descuento>0
-? `<span style="text-decoration:line-through;color:var(--txt3);font-size:10px">Q${subtotal.toFixed(2)}</span><br><span style="color:var(--yel);font-size:9px">-Q${descuento.toFixed(2)}</span><br><b style="color:var(--acc)">Q${cobrado.toFixed(2)}</b>`
-: `<b style="color:var(--acc)">Q${cobrado.toFixed(2)}</b>`;
-return `<tr style="${bg}">
-<td style="padding:7px 10px;font-size:11px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:var(--acc);font-size:10px">${fmtHora(v.timestamp)}</span></td>
-<td style="padding:7px 10px;font-size:11px">${v.cliente||'CF'}</td>
-<td style="padding:7px 10px;font-size:11px;text-align:right;color:${ef>0?'#16a34a':'var(--txt3)'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
-<td style="padding:7px 10px;font-size:11px;text-align:right;color:${ta>0?'#2563eb':'var(--txt3)'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
-<td style="padding:7px 10px;font-size:11px;text-align:right;color:${tr>0?'#7c3aed':'var(--txt3)'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
-<td style="padding:7px 10px;font-size:10px;color:var(--txt3);max-width:90px;overflow:hidden;text-overflow:ellipsis">${ref}</td>
-<td style="padding:7px 10px;font-size:11px;text-align:right;line-height:1.4">${totalCell}</td>
-</tr>`;
-}).join('');
-
-if(footEl) footEl.innerHTML =
-`<tr style="background:var(--bg3);border-top:1px solid var(--bdr)">
-<td colspan="2" style="padding:8px 10px;font-size:11px;color:var(--txt3)">Precio de lista (antes descuentos)</td>
-<td colspan="4"></td>
-<td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--txt3)">Q${totSubtotal.toFixed(2)}</td>
-</tr>`+
-(totDescuentos>0?`<tr style="background:var(--bg3)">
-<td colspan="2" style="padding:8px 10px;font-size:11px;color:#d97706">🏷️ Total descuentos aplicados</td>
-<td colspan="4"></td>
-<td style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:#d97706">-Q${totDescuentos.toFixed(2)}</td>
-</tr>`:'')+
-`<tr style="background:var(--bg3);border-top:2px solid var(--acc)">
-<td colspan="2" style="padding:9px 10px;font-weight:700;font-size:12px">${ventas.length} ventas · Total cobrado</td>
-<td style="padding:9px 10px;text-align:right;font-weight:800;color:#16a34a">${inclEf?'Q'+totEf.toFixed(2):''}</td>
-<td style="padding:9px 10px;text-align:right;font-weight:800;color:#2563eb">${inclTa?'Q'+totTa.toFixed(2):''}</td>
-<td style="padding:9px 10px;text-align:right;font-weight:800;color:#7c3aed">${inclTr?'Q'+totTr.toFixed(2):''}</td>
-<td></td>
-<td style="padding:9px 10px;text-align:right;font-weight:800;font-size:15px;color:var(--acc)">Q${totCobrado.toFixed(2)}</td>
-</tr>`;
-
-document.getElementById('cdr-resultado'+s).style.display='block';
-return { totEf, totTa, totTr, totGen: totCobrado, totSubtotal, totDescuentos, ventas };
+  document.getElementById('cdr-resultado'+s).style.display='block';
 }
-
-function generarCuadreCaja(){ const d=_getCdrRango(''); _renderCuadreResultado(d,''); }
-function generarCuadreCajaAud(){ const d=_getCdrRango('-aud'); _renderCuadreResultado(d,'-aud'); }
 
 function onCdrPeriodoChange(){
-const v=document.getElementById('cdr-periodo')?.value;
-document.getElementById('cdr-n-meses-wrap').style.display=v==='meses'?'block':'none';
-document.getElementById('cdr-rango-wrap').style.display=v==='rango'?'block':'none';
+  const v = document.getElementById('cdr-periodo')?.value;
+  document.getElementById('cdr-n-meses-wrap').style.display  = v==='meses'?'block':'none';
+  document.getElementById('cdr-rango-wrap').style.display    = v==='rango'?'block':'none';
 }
 function onCdrPeriodoAudChange(){
-const v=document.getElementById('cdr-periodo-aud')?.value;
-document.getElementById('cdr-n-meses-aud-wrap').style.display=v==='meses'?'block':'none';
-document.getElementById('cdr-rango-aud-wrap').style.display=v==='rango'?'block':'none';
+  const v = document.getElementById('cdr-periodo-aud')?.value;
+  document.getElementById('cdr-n-meses-aud-wrap').style.display = v==='meses'?'block':'none';
+  document.getElementById('cdr-rango-aud-wrap').style.display   = v==='rango'?'block':'none';
 }
 
-function _exportarCuadreExcelBase(sufijo){
-const datos = _getCdrRango(sufijo);
-const r = _renderCuadreResultado(datos, sufijo);
-if(!r.ventas.length){ toast('Sin ventas en este período','err'); return; }
-const wb = XLSX.utils.book_new();
-// Resumen
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
-{' ':datos.label,'Métodos':datos.metodosLabel},
-{'Método':'💵 Efectivo','Total Q':r.totEf.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length},
-{'Método':'💳 Tarjeta/POS','Total Q':r.totTa.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'tarjeta')>0).length},
-{'Método':'🏦 Transferencia','Total Q':r.totTr.toFixed(2),'Transacciones':r.ventas.filter(v=>_getPagosMonto(v,'transferencia')>0).length},
-{'Método':'📊 TOTAL','Total Q':r.totGen.toFixed(2),'Transacciones':r.ventas.length},
-]),'Resumen cuadre');
-// Detalle
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.ventas.map(v=>({
-'Fecha':fmtFecha(v.timestamp),'Hora':fmtHora(v.timestamp),
-'Cliente':v.cliente||'CF','NIT':v.nit||'CF',
-'Productos':v.items.map(i=>`${i.cant}× ${i.nombre}`).join(', '),
-'Efectivo Q':_getPagosMonto(v,'efectivo').toFixed(2),
-'Tarjeta/POS Q':_getPagosMonto(v,'tarjeta').toFixed(2),
-'Transferencia Q':_getPagosMonto(v,'transferencia').toFixed(2),
-'N° Auth/Ref':v.numAuth||v.numTransf||'',
-'Total Q':v.total.toFixed(2),
-}))),'Detalle ventas');
-XLSX.writeFile(wb,`cuadre_caja_${hoy()}.xlsx`);
-toast('✅ Excel exportado');
+function exportarCuadreExcel(){ _exportarCuadreExcelConDatos(_getCdrDatos('')); }
+function exportarCuadreExcelAud(){ _exportarCuadreExcelConDatos(_getCdrDatos('-aud')); }
+
+function _exportarCuadreExcelConDatos(d){
+  if(!d.ventas.length){ toast('Sin ventas en este período','err'); return; }
+  const wb = XLSX.utils.book_new();
+  const resumen = [
+    {' ':d.label,'Métodos':d.metodosLabel},
+    {'Método':'💵 Efectivo','Total Q':d.totEf.toFixed(2)},
+    {'Método':'💳 Tarjeta','Total Q':d.totTa.toFixed(2)},
+    {'Método':'🏦 Transferencia','Total Q':d.totTr.toFixed(2)},
+  ];
+  if(d.totDescuentos>0){
+    resumen.push({'Método':'🏷️ Descuentos aplicados','Total Q':'-'+d.totDescuentos.toFixed(2)});
+    resumen.push({'Método':'📊 Precio de lista','Total Q':d.totSubtotal.toFixed(2)});
+  }
+  resumen.push({'Método':'📊 TOTAL COBRADO','Total Q':d.totCobrado.toFixed(2),'Transacciones':d.ventas.length});
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+  const det = d.ventas.map(v=>({
+    'Fecha':fmtFecha(v.timestamp),'Hora':fmtHora(v.timestamp),
+    'Cliente':v.cliente||'CF','NIT':v.nit||'CF',
+    'Efectivo Q':_getPagosMonto(v,'efectivo').toFixed(2),
+    'Tarjeta Q':_getPagosMonto(v,'tarjeta').toFixed(2),
+    'Transferencia Q':_getPagosMonto(v,'transferencia').toFixed(2),
+    'Descuento Q':Math.max(0,v.descuento||0).toFixed(2),
+    'Precio lista Q':(v.subtotal||v.total).toFixed(2),
+    'Total cobrado Q':(_getPagosMonto(v,'efectivo')+_getPagosMonto(v,'tarjeta')+_getPagosMonto(v,'transferencia')||v.total).toFixed(2),
+    'N° Auth/Ref':v.numAuth||v.numTransf||'',
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), 'Detalle');
+  XLSX.writeFile(wb, 'cuadre_caja_'+d.desde+'_'+d.hasta+'.xlsx');
+  toast('✅ Excel exportado');
 }
 
-function exportarCuadreExcel(){ _exportarCuadreExcelBase(''); }
-function exportarCuadreExcelAud(){ _exportarCuadreExcelBase('-aud'); }
+function exportarCuadrePDF(){ _exportarCuadrePDFConDatos(_getCdrDatos('')); }
+function exportarCuadrePDFAud(){ _exportarCuadrePDFConDatos(_getCdrDatos('-aud')); }
 
-function _exportarCuadrePDFBase(sufijo){
-const datos = _getCdrRango(sufijo);
-const r = _renderCuadreResultado(datos, sufijo);
-if(!r.ventas.length){ toast('Sin ventas en este período','err'); return; }
-const { ventas, label, metodosLabel, inclEf, inclTa, inclTr } = datos;
+function _exportarCuadrePDFConDatos(d){
+  if(!d.ventas.length){ toast('Sin ventas en este período','err'); return; }
 
-const rows = ventas.map((v,i)=>{
-const ef=_getPagosMonto(v,'efectivo'), ta=_getPagosMonto(v,'tarjeta'), tr=_getPagosMonto(v,'transferencia');
-const cobrado = ef+ta+tr || v.total;
-const subtotal = v.subtotal || v.total;
-const descuento = Math.max(0, v.descuento||0);
-const ref=v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
-const totalCell = descuento>0
-? `<span style="text-decoration:line-through;color:#aaa;font-size:9px">Q${subtotal.toFixed(2)}</span> <span style="color:#d97706;font-size:9px">-Q${descuento.toFixed(2)}</span><br><b>Q${cobrado.toFixed(2)}</b>`
-: `Q${cobrado.toFixed(2)}`;
-return `<tr style="background:${i%2===0?'#fff':'#f8faff'}">
-<td style="padding:5px 8px;font-size:10px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:#f97316">${fmtHora(v.timestamp)}</span></td>
-<td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}<br><span style="color:#888;font-size:9px">${v.nit||'CF'}</span></td>
-<td style="padding:5px 8px;font-size:10px;text-align:right;color:${ef>0?'#16a34a':'#ccc'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
-<td style="padding:5px 8px;font-size:10px;text-align:right;color:${ta>0?'#2563eb':'#ccc'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
-<td style="padding:5px 8px;font-size:10px;text-align:right;color:${tr>0?'#7c3aed':'#ccc'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
-<td style="padding:5px 8px;font-size:9px;color:#888">${ref}</td>
-<td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700;color:#f97316;line-height:1.4">${totalCell}</td>
-</tr>`;
-}).join('');
+  const rows = d.ventas.map((v,i)=>{
+    const ef=_getPagosMonto(v,'efectivo'), ta=_getPagosMonto(v,'tarjeta'), tr=_getPagosMonto(v,'transferencia');
+    const cobrado=ef+ta+tr||v.total, sub=v.subtotal||v.total, desc=Math.max(0,v.descuento||0);
+    const ref=v.numAuth||v.numTransf||(v.pagos?.map(p=>p.ref).filter(Boolean).join(', '))||'';
+    const totalCell = desc>0
+      ? `<span style="text-decoration:line-through;color:#aaa;font-size:9px">Q${sub.toFixed(2)}</span> <span style="color:#d97706;font-size:9px">-Q${desc.toFixed(2)}</span><br><b>Q${cobrado.toFixed(2)}</b>`
+      : `Q${cobrado.toFixed(2)}`;
+    return `<tr style="background:${i%2===0?'#fff':'#f8faff'}">
+      <td style="padding:5px 8px;font-size:10px;white-space:nowrap">${fmtFecha(v.timestamp)}<br><span style="color:#f97316">${fmtHora(v.timestamp)}</span></td>
+      <td style="padding:5px 8px;font-size:10px">${v.cliente||'CF'}<br><span style="color:#888;font-size:9px">${v.nit||'CF'}</span></td>
+      <td style="padding:5px 8px;font-size:10px;text-align:right;color:${ef>0?'#16a34a':'#ccc'}">${ef>0?'Q'+ef.toFixed(2):'—'}</td>
+      <td style="padding:5px 8px;font-size:10px;text-align:right;color:${ta>0?'#2563eb':'#ccc'}">${ta>0?'Q'+ta.toFixed(2):'—'}</td>
+      <td style="padding:5px 8px;font-size:10px;text-align:right;color:${tr>0?'#7c3aed':'#ccc'}">${tr>0?'Q'+tr.toFixed(2):'—'}</td>
+      <td style="padding:5px 8px;font-size:9px;color:#888">${ref}</td>
+      <td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700;color:#f97316;line-height:1.5">${totalCell}</td>
+    </tr>`;
+  }).join('');
 
-const w=window.open('','_blank','width=1000,height=800');
-w.document.write(`<!DOCTYPE html><html><head><title>Cuadre de Caja</title>
-<style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:20px;color:#111;font-size:12px}
-.header{display:flex;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:10px;margin-bottom:14px}
-.empresa{font-size:17px;font-weight:800;color:#f97316}.sub{font-size:10px;color:#888}
-.resumen{display:flex;gap:0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px}
-.rbox{flex:1;padding:10px;text-align:center;border-right:1px solid #e5e7eb}.rbox:last-child{border-right:none}
-.rbox-l{font-size:9px;color:#888;text-transform:uppercase;margin-bottom:3px}.rbox-v{font-size:16px;font-weight:800}
-.rbox-n{font-size:9px;color:#888;margin-top:2px}
-table{width:100%;border-collapse:collapse}th{background:#f97316;color:#fff;padding:7px 8px;font-size:9px;text-align:left}
-th.r{text-align:right}tfoot td{background:#fff8f0;font-weight:700;border-top:2px solid #f97316}
-.firma{display:flex;gap:50px;margin-top:28px}.firma-box{flex:1;border-top:1px solid #333;text-align:center;padding-top:5px;font-size:10px;color:#666}
-.footer{text-align:center;margin-top:14px;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:8px}
-@media print{.np{display:none}}</style>
-</head><body>
-<div class="header">
-<div><div style="font-size:22px">🍬</div><div class="empresa">ChicleManía S.A.</div><div class="sub">NIT: 12044610-3 · Central Norte</div></div>
-<div style="text-align:right">
-<div style="font-size:14px;font-weight:800">CUADRE DE CAJA</div>
-<div class="sub">Período: <b>${label}</b></div>
-<div class="sub">Métodos: ${metodosLabel}</div>
-<div class="sub">Generado: ${new Date().toLocaleString('es-GT')}</div>
-<div class="sub">Por: ${_rolActual==='admin'?'Admin':'Rosmery Archila'}</div>
+  const descRows = d.totDescuentos>0
+    ? `<tr style="background:#fafafa"><td colspan="6" style="padding:5px 8px;font-size:9px;color:#888">Precio de lista antes de descuentos</td><td style="padding:5px 8px;text-align:right;font-size:9px;color:#888">Q${d.totSubtotal.toFixed(2)}</td></tr>
+       <tr style="background:#fffbeb"><td colspan="6" style="padding:5px 8px;font-size:9px;font-weight:700;color:#d97706">🏷️ Total descuentos aplicados</td><td style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#d97706">-Q${d.totDescuentos.toFixed(2)}</td></tr>`
+    : '';
+
+  const w = window.open('','_blank','width=1000,height=820');
+  w.document.write(`<!DOCTYPE html><html><head><title>Cuadre de Caja</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:20px;color:#111;font-size:12px}
+.hdr{display:flex;justify-content:space-between;border-bottom:3px solid #f97316;padding-bottom:10px;margin-bottom:14px}
+.emp{font-size:17px;font-weight:800;color:#f97316}.sub{font-size:10px;color:#888}
+.res{display:flex;gap:0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.rb{flex:1;padding:10px;text-align:center;border-right:1px solid #e5e7eb}.rb:last-child{border-right:none}
+.rl{font-size:9px;color:#888;text-transform:uppercase;margin-bottom:3px}.rv{font-size:16px;font-weight:800}.rn{font-size:9px;color:#888}
+table{width:100%;border-collapse:collapse}
+th{background:#f97316;color:#fff;padding:7px 8px;font-size:9px;text-align:left}th.r{text-align:right}
+tfoot td{font-weight:700;border-top:2px solid #f97316}
+.firma{display:flex;gap:50px;margin-top:28px}.fb{flex:1;border-top:1px solid #333;text-align:center;padding-top:5px;font-size:10px;color:#666}
+.ftr{text-align:center;margin-top:14px;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:8px}
+@media print{.np{display:none}}
+</style></head><body>
+<div class="hdr">
+  <div><div style="font-size:22px">🍬</div><div class="emp">ChicleManía S.A.</div><div class="sub">NIT: 12044610-3 · Central Norte</div></div>
+  <div style="text-align:right">
+    <div style="font-size:14px;font-weight:800">CUADRE DE CAJA</div>
+    <div class="sub">Período: <b>${d.label}</b></div>
+    <div class="sub">Métodos: ${d.metodosLabel}</div>
+    <div class="sub">Generado: ${new Date().toLocaleString('es-GT')}</div>
+    <div class="sub">Por: ${_rolActual==='admin'?'Admin':'Rosmery Archila'}</div>
+  </div>
 </div>
+<div class="res">
+  ${d.inclEf?`<div class="rb" style="background:#f0fdf4"><div class="rl">💵 Efectivo</div><div class="rv" style="color:#16a34a">Q${d.totEf.toFixed(2)}</div><div class="rn">${d.ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length} trans.</div></div>`:''}
+  ${d.inclTa?`<div class="rb" style="background:#eff6ff"><div class="rl">💳 Tarjeta/POS</div><div class="rv" style="color:#2563eb">Q${d.totTa.toFixed(2)}</div></div>`:''}
+  ${d.inclTr?`<div class="rb" style="background:#faf5ff"><div class="rl">🏦 Transferencia</div><div class="rv" style="color:#7c3aed">Q${d.totTr.toFixed(2)}</div></div>`:''}
+  ${d.totDescuentos>0?`<div class="rb" style="background:#fffbeb"><div class="rl">🏷️ Descuentos</div><div class="rv" style="color:#d97706">-Q${d.totDescuentos.toFixed(2)}</div></div>`:''}
+  <div class="rb" style="background:#fff8f0;border-left:3px solid #f97316"><div class="rl">📊 TOTAL COBRADO</div><div class="rv" style="color:#f97316;font-size:18px">Q${d.totCobrado.toFixed(2)}</div><div class="rn">${d.ventas.length} ventas</div></div>
 </div>
-<div class="resumen">
-${inclEf?`<div class="rbox" style="background:#f0fdf4"><div class="rbox-l">💵 Efectivo</div><div class="rbox-v" style="color:#16a34a">Q${r.totEf.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'efectivo')>0).length} trans.</div></div>`:''}
-${inclTa?`<div class="rbox" style="background:#eff6ff"><div class="rbox-l">💳 Tarjeta/POS</div><div class="rbox-v" style="color:#2563eb">Q${r.totTa.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'tarjeta')>0).length} trans.</div></div>`:''}
-${inclTr?`<div class="rbox" style="background:#faf5ff"><div class="rbox-l">🏦 Transferencia</div><div class="rbox-v" style="color:#7c3aed">Q${r.totTr.toFixed(2)}</div><div class="rbox-n">${ventas.filter(v=>_getPagosMonto(v,'transferencia')>0).length} trans.</div></div>`:''}
-<div class="rbox" style="background:#fff8f0;border-left:3px solid #f97316"><div class="rbox-l">📊 TOTAL GENERAL</div><div class="rbox-v" style="color:#f97316;font-size:18px">Q${r.totGen.toFixed(2)}</div><div class="rbox-n">${ventas.length} ventas</div></div>
-</div>
-<table><thead><tr>
-<th>Fecha/Hora</th><th>Cliente</th>
-${inclEf?'<th class="r" style="background:#16a34a">💵 Efectivo</th>':''}
-${inclTa?'<th class="r" style="background:#2563eb">💳 Tarjeta</th>':''}
-${inclTr?'<th class="r" style="background:#7c3aed">🏦 Transferencia</th>':''}
-<th>N° Autorización</th><th class="r" style="background:#b45309">Total Q</th>
+<table>
+<thead><tr>
+  <th>Fecha/Hora</th><th>Cliente</th>
+  ${d.inclEf?'<th class="r" style="background:#16a34a">💵 Efectivo</th>':''}
+  ${d.inclTa?'<th class="r" style="background:#2563eb">💳 Tarjeta</th>':''}
+  ${d.inclTr?'<th class="r" style="background:#7c3aed">🏦 Transf.</th>':''}
+  <th>N° Autorización</th>
+  <th class="r" style="background:#b45309">Total Q</th>
 </tr></thead>
 <tbody>${rows}</tbody>
 <tfoot>
-${r.totSubtotal && r.totSubtotal !== r.totGen ? `<tr style="background:#fafafa"><td colspan="6" style="padding:5px 8px;font-size:9px;color:#888">Precio de lista (antes de descuentos)</td><td style="padding:5px 8px;text-align:right;font-size:9px;color:#888">Q${r.totSubtotal.toFixed(2)}</td></tr>` : ''}
-${r.totDescuentos > 0 ? `<tr style="background:#fffbeb"><td colspan="6" style="padding:5px 8px;font-size:9px;font-weight:600;color:#d97706">🏷️ Total descuentos aplicados</td><td style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:#d97706">-Q${r.totDescuentos.toFixed(2)}</td></tr>` : ''}
-<tr>
-<td colspan="2" style="padding:8px">TOTALES COBRADOS — ${ventas.length} venta${ventas.length!==1?'s':''}</td>
-${inclEf?`<td style="padding:8px;text-align:right;color:#16a34a">Q${r.totEf.toFixed(2)}</td>`:'<td></td>'}
-${inclTa?`<td style="padding:8px;text-align:right;color:#2563eb">Q${r.totTa.toFixed(2)}</td>`:'<td></td>'}
-${inclTr?`<td style="padding:8px;text-align:right;color:#7c3aed">Q${r.totTr.toFixed(2)}</td>`:'<td></td>'}
-<td></td><td style="padding:8px;text-align:right;color:#f97316;font-size:13px">Q${r.totGen.toFixed(2)}</td>
-</tr>
+  ${descRows}
+  <tr style="background:#fff8f0">
+    <td colspan="3" style="padding:8px;font-size:11px">TOTALES COBRADOS — ${d.ventas.length} venta${d.ventas.length!==1?'s':''}</td>
+    ${d.inclEf?`<td style="padding:8px;text-align:right;color:#16a34a">Q${d.totEf.toFixed(2)}</td>`:''}
+    ${d.inclTa?`<td style="padding:8px;text-align:right;color:#2563eb">Q${d.totTa.toFixed(2)}</td>`:''}
+    ${d.inclTr?`<td style="padding:8px;text-align:right;color:#7c3aed">Q${d.totTr.toFixed(2)}</td>`:''}
+    <td></td>
+    <td style="padding:8px;text-align:right;font-size:13px;color:#f97316">Q${d.totCobrado.toFixed(2)}</td>
+  </tr>
 </tfoot>
 </table>
-<div class="firma">
-<div class="firma-box">Vendedor: Rosmery Archila</div>
-<div class="firma-box">Visto bueno Administrador</div>
-</div>
-<div class="footer">ChicleManía S.A. · NIT 12044610-3 · Central Norte</div>
+<div class="firma"><div class="fb">Vendedor: Rosmery Archila</div><div class="fb">Visto bueno Administrador</div></div>
+<div class="ftr">ChicleManía S.A. · NIT 12044610-3 · Central Norte</div>
 <div class="np" style="margin-top:16px;text-align:center">
-<button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
-</div></body></html>`);
-w.document.close();
+  <button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+</div>
+</body></html>`);
+  w.document.close();
 }
 
-function exportarCuadrePDF(){ _exportarCuadrePDFBase(''); }
-function exportarCuadrePDFAud(){ _exportarCuadrePDFBase('-aud'); }
 
-
-function exportarCajaPDF(){
-const datos = _cajaUltDatos || getCajaRango();
-if(!datos.ventas || !datos.ventas.length){ toast('Sin ventas en este período','err'); return; }
-
-const rows = datos.ventas.map(v=>'<tr>'
-+'<td style="padding:5px 8px;font-size:10px">'+fmtFecha(v.timestamp)+' '+fmtHora(v.timestamp)+'</td>'
-+'<td style="padding:5px 8px;font-size:10px">'+(v.cliente||'CF')+'</td>'
-+'<td style="padding:5px 8px;font-size:10px;text-align:center">'+(v.metodoPago==='tarjeta'?'💳 Tarjeta':v.metodoPago==='transferencia'?'🏦 Transf.':'💵 Efectivo')+'</td>'
-+'<td style="padding:5px 8px;font-size:10px;text-align:right;font-weight:700">Q'+v.total.toFixed(2)+'</td>'
-+'</tr>').join('');
-
-const w = window.open('','_blank','width=750,height=700');
-w.document.write('<!DOCTYPE html><html><head><title>Cuadre de Caja</title>'
-+'<style>body{font-family:Arial,sans-serif;padding:24px;font-size:12px}h1{color:#f97316;font-size:18px}'+'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}'+'.stat{background:#fff8f0;border:1px solid #fed7aa;border-radius:8px;padding:10px;text-align:center}'+'.stat-v{font-size:16px;font-weight:800;color:#f97316}.stat-l{font-size:10px;color:#888}'+'table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f97316;color:#fff;padding:6px 8px;font-size:10px;text-align:left}'+'tr:nth-child(even){background:#fafafa}@media print{.np{display:none}}</style></head><body>'
-+'<h1>🍬 ChicleManía — Cuadre de Caja</h1>'
-+'<p style="color:#888">Período: <b>'+datos.label+'</b> · Generado: '+new Date().toLocaleString('es-GT')+'</p>'
-+'<div class="stats">'
-+'<div class="stat"><div class="stat-l">TOTAL VENDIDO</div><div class="stat-v">Q'+datos.totalVentas.toFixed(2)+'</div></div>'
-+'<div class="stat"><div class="stat-l">EFECTIVO</div><div class="stat-v" style="color:#16a34a">Q'+datos.totalEfectivo.toFixed(2)+'</div></div>'
-+'<div class="stat"><div class="stat-l">TARJETA</div><div class="stat-v" style="color:#2563eb">Q'+datos.totalTarjeta.toFixed(2)+'</div></div>'
-+'</div>'
-+'<table><thead><tr><th>Fecha/Hora</th><th>Cliente</th><th style="text-align:center">Método</th><th style="text-align:right">Total Q</th></tr></thead>'
-+'<tbody>'+rows+'</tbody></table>'
-+'<div class="np" style="margin-top:20px;text-align:center"><button onclick="window.print()" style="padding:10px 28px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>'
-+'</body></html>');
-w.document.close();
-}
 
 function guardarMeta(){
 const diaria = parseFloat(document.getElementById('meta-diaria').value)||0;
