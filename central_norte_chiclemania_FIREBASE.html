@@ -3262,7 +3262,7 @@ const filtro = _histFiltro || 'hoy';
 if(filtro==='hoy') ventas = ventas.filter(v=>fechaLocal(v.timestamp)===hoyStr);
 else if(filtro==='semana'){
 const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
-ventas = ventas.filter(v=>v.fecha>=hace7.toISOString().slice(0,10));
+ventas = ventas.filter(v=>fechaLocal(v.timestamp)>=hace7.toISOString().slice(0,10));
 } else if(filtro==='mes'){
 const d = new Date();
 const inicioMes = d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-01';
@@ -3651,10 +3651,10 @@ function cambiarPins(){
 
 function renderResumenAdmin(){
 const hoyStr = hoy();
-const ventasHoy = db.ventas.filter(v=>v.fecha===hoyStr && !v.anulada);
+const ventasHoy = db.ventas.filter(v=>fechaLocal(v.timestamp)===hoyStr && !v.anulada);
 const totalHoy = ventasHoy.reduce((s,v)=>s+v.total,0);
 const udsHoy = ventasHoy.reduce((s,v)=>s+v.items.reduce((ss,i)=>ss+i.cant,0),0);
-const anuladasHoy = db.ventas.filter(v=>v.fecha===hoyStr && v.anulada).length;
+const anuladasHoy = db.ventas.filter(v=>fechaLocal(v.timestamp)===hoyStr && v.anulada).length;
 const movsHoy = db.movimientos.filter(m=>m.fecha===hoyStr&&m.tipo!=='venta');
 const productosNuevos = db.movimientos.filter(m=>m.tipo==='producto_nuevo').map(m=>({
 nombre:m.prodNombre, motivo:m.motivo, ts:m.timestamp
@@ -5838,7 +5838,7 @@ function setCajaFechaEspecifica(){ renderCajaStats(); }
 
 function renderCajaStats(){
 const { desde, hasta, label } = getCajaRango();
-const ventas = (db.ventas||[]).filter(v => !v.anulada && v.fecha >= desde && v.fecha <= hasta);
+const ventas = (db.ventas||[]).filter(v => !v.anulada && fechaLocal(v.timestamp) >= desde && fechaLocal(v.timestamp) <= hasta);
 
 const totalVentas = ventas.reduce((s,v)=>s+v.total,0);
 const nVentas = ventas.length;
@@ -5912,11 +5912,24 @@ const fondo    = parseFloat(document.getElementById('caja-fondo').value)||0;
 const obs      = document.getElementById('caja-obs').value.trim();
 if(!efectivo && !fondo){ toast('Ingresá el efectivo en caja','err'); return; }
 
-const datos       = _cajaUltDatos || getCajaRango();
-const totalSistema= datos.totalEfectivo || 0;
-const totalGeneral= datos.totalVentas   || 0;
+// Siempre recalcular desde el rango actual — no usar snapshot viejo
+const rango = getCajaRango();
+const desde = rango.desde;
+const hasta = rango.hasta;
+
+const ventasCierre = (db.ventas||[]).filter(v =>
+  !v.anulada &&
+  fechaLocal(v.timestamp) >= desde &&
+  fechaLocal(v.timestamp) <= hasta
+);
+
+const totalEfectivo     = ventasCierre.filter(v=>!v.metodoPago||v.metodoPago==='efectivo').reduce((s,v)=>s+v.total,0);
+const totalTarjeta      = ventasCierre.filter(v=>v.metodoPago==='tarjeta').reduce((s,v)=>s+v.total,0);
+const totalTransferencia= ventasCierre.filter(v=>v.metodoPago==='transferencia').reduce((s,v)=>s+v.total,0);
+const totalGeneral      = ventasCierre.reduce((s,v)=>s+v.total,0);
+
 const efectivoNeto= efectivo - fondo;
-const diferencia  = efectivoNeto - totalSistema;
+const diferencia  = efectivoNeto - totalEfectivo;
 const diffLabel   = diferencia===0 ? '✅ Cuadra perfectamente'
 : diferencia>0   ? '📈 Sobrante Q'+Math.abs(diferencia).toFixed(2)
 :                  '📉 Faltante Q'+Math.abs(diferencia).toFixed(2);
@@ -5924,14 +5937,13 @@ const diffLabel   = diferencia===0 ? '✅ Cuadra perfectamente'
 if(!db.cierresCaja) db.cierresCaja = [];
 const cierre = {
 id: 'CAJA-'+Date.now(), timestamp: ahora(), fecha: hoy(),
-periodoDesde: datos.desde, periodoHasta: datos.hasta, periodoLabel: datos.label,
-totalSistema, totalGeneral,
-totalTarjeta:       datos.totalTarjeta||0,
-totalTransferencia: datos.totalTransferencia||0,
+periodoDesde: desde, periodoHasta: hasta, periodoLabel: rango.label,
+totalSistema: totalEfectivo, totalGeneral,
+totalTarjeta, totalTransferencia,
 efectivo, fondo, efectivoNeto, diferencia,
 obs, ejecutadoPor: _rolActual==='admin'?'Admin':'Rosmery Archila',
-nVentas: datos.nVentas||0,
-ventas:  datos.ventas||[],
+nVentas: ventasCierre.length,
+ventas: ventasCierre,
 };
 db.cierresCaja.push(cierre);
 saveDB();
@@ -6189,8 +6201,8 @@ function _getCdrDatos(sufijo){
 
   // Filtrar ventas usando v.fecha (campo guardado en Firebase)
   let ventas = (db.ventas||[]).filter(v => !v.anulada);
-  if(desde) ventas = ventas.filter(v => (v.fecha||'') >= desde);
-  if(hasta)  ventas = ventas.filter(v => (v.fecha||'') <= hasta);
+  if(desde) ventas = ventas.filter(v => fechaLocal(v.timestamp) >= desde);
+  if(hasta)  ventas = ventas.filter(v => fechaLocal(v.timestamp) <= hasta);
 
   // Filtrar por métodos
   ventas = ventas.filter(v => {
