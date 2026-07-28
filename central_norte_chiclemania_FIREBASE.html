@@ -2495,7 +2495,7 @@ ${esAnulada?'<div style="font-size:9px;color:var(--red);font-weight:600;text-dec
 : `<span class="badge ${v.vendedor==='admin'?'badge-blu':'badge-acc'}">${v.vendedor==='admin'?'Admin':'Vendedor'}</span>`}
 </td>
 <td>${puedeAnular
-? `<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button><button class="btn btn-danger btn-sm" onclick="abrirAnularVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🚫</button></div>`
+? `<div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button><button class="btn btn-sm" onclick="abrirCambiarFecha('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px;background:rgba(251,146,60,.15);color:var(--acc2);border:1px solid rgba(251,146,60,.25)">📅</button><button class="btn btn-danger btn-sm" onclick="abrirAnularVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🚫</button></div>`
 : (esAnulada ? `<div style="font-size:10px;color:var(--txt3)">${fmtFecha(v.anuladaEn||'')}<br><span style="color:var(--red)">${v.anuladaPor||''}</span></div>` : `<button class="btn btn-sec btn-sm" onclick="generarFacturaVenta('${v.id}');event.stopPropagation()" style="font-size:11px;padding:4px 8px">🧾</button>`)}
 </td>
 </tr>`;
