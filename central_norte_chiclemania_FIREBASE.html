@@ -893,19 +893,27 @@
 <!-- NUEVA SECCIÓN: Reasignar ventas -->
 <div class="admin-card" style="border-color:rgba(251,146,60,.3);background:rgba(251,146,60,.05);margin-bottom:14px">
 <div class="admin-card-title" style="color:var(--acc2)">🔄 Reasignar ventas a otra fecha</div>
-<p style="font-size:12px;color:var(--txt3);margin-bottom:14px">Si hay ventas que se registraron hoy pero pertenecen a otro día (ej: sábado 25), puedes cambiarles la fecha aquí.</p>
-<div class="form-row" style="margin-bottom:10px">
+<p style="font-size:12px;color:var(--txt3);margin-bottom:14px">Si hay ventas que se registraron en un día pero pertenecen a otro, cámbialas aquí.</p>
+<div class="form-row" style="margin-bottom:10px;gap:10px">
 <div class="fgr">
-<label>Fecha destino (el día al que pertenecen las ventas)</label>
-<input type="date" id="fechaDestino" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);padding:10px 12px;font-size:14px">
+<label>Buscar ventas de este día</label>
+<input type="date" id="fechaFiltro" onchange="filtrarVentasPorFecha()" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);padding:10px 12px;font-size:14px">
+</div>
+<div class="fgr" style="display:flex;align-items:flex-end">
+<button class="btn btn-sec" onclick="cargarVentasParaReasignar()" style="width:100%">🔄 Recargar todas</button>
 </div>
 </div>
 <div style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);padding:12px;margin-bottom:12px;max-height:220px;overflow-y:auto">
-<div id="ventasParaReasignar" style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">Cargando ventas de hoy...</div>
+<div id="ventasParaReasignar" style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">⏳ Cargando ventas...</div>
+</div>
+<div class="form-row" style="margin-bottom:10px">
+<div class="fgr">
+<label>Mover seleccionadas a esta fecha</label>
+<input type="date" id="fechaDestino" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);color:var(--txt);padding:10px 12px;font-size:14px">
+</div>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap">
-<button class="btn btn-sec" onclick="cargarVentasParaReasignar()">🔄 Actualizar lista</button>
-<button class="btn" style="background:rgba(34,197,94,.15);color:var(--grn);border:1px solid rgba(34,197,94,.25)" onclick="aplicarReasignacionFechas()">✓ Reasignar seleccionadas</button>
+<button class="btn btn-success" onclick="aplicarReasignacionFechas()" style="background:rgba(34,197,94,.15);color:var(--grn);border:1px solid rgba(34,197,94,.25);flex:1">✓ Reasignar seleccionadas</button>
 </div>
 </div>
 
@@ -6267,26 +6275,20 @@ setTimeout(()=>toast(`⚠️ ${n} producto${n!==1?'s':''} bajo mínimo — revis
 }
 }
 }
-initDB();
-
 // ===== FUNCIONES PARA REASIGNAR FECHAS DE VENTAS =====
 // SE EJECUTAN DESPUÉS DE QUE FIREBASE ESTÉ LISTO
 let ventasReasignables = [];
+let todasLasVentas = [];
 
 function cargarVentasParaReasignar() {
   const container = document.getElementById('ventasParaReasignar');
   if (!container) return;
   
-  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3)">⏳ Cargando ventas...</div>';
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3)">⏳ Cargando todas las ventas...</div>';
   
-  const ahora = new Date();
-  const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  const hoyFin = new Date(hoyInicio.getTime() + 86400000);
-  
-  const timestampInicio = hoyInicio.getTime();
-  const timestampFin = hoyFin.getTime();
-  
+  // Cargar TODAS las ventas sin filtro
   db.ref('ventas').once('value', snap => {
+    todasLasVentas = [];
     ventasReasignables = [];
     
     snap.forEach(child => {
@@ -6294,21 +6296,51 @@ function cargarVentasParaReasignar() {
       const vid = child.key;
       
       if (v && v.timestamp) {
-        const ts = parseInt(v.timestamp);
-        if (ts >= timestampInicio && ts < timestampFin) {
-          ventasReasignables.push({
-            id: vid,
-            cliente: v.cliente || 'Sin nombre',
-            total: v.total || 0,
-            timestamp: ts,
-            metodoPago: v.metodoPago || 'Efectivo'
-          });
-        }
+        todasLasVentas.push({
+          id: vid,
+          cliente: v.cliente || 'Sin nombre',
+          total: v.total || 0,
+          timestamp: parseInt(v.timestamp),
+          metodoPago: v.metodoPago || 'Efectivo',
+          fecha: new Date(parseInt(v.timestamp)).toLocaleDateString('es-GT')
+        });
       }
     });
     
+    // Filtrar solo de HOY por defecto
+    const ahora = new Date();
+    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+    const hoyFin = hoyInicio + 86400000;
+    
+    ventasReasignables = todasLasVentas.filter(v => v.timestamp >= hoyInicio && v.timestamp < hoyFin);
+    
     mostrarVentasReasignables();
   });
+}
+
+function filtrarVentasPorFecha() {
+  const fechaFiltro = document.getElementById('fechaFiltro').value;
+  
+  if (!fechaFiltro) {
+    // Si no hay fecha, mostrar de hoy
+    const ahora = new Date();
+    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+    const hoyFin = hoyInicio + 86400000;
+    ventasReasignables = todasLasVentas.filter(v => v.timestamp >= hoyInicio && v.timestamp < hoyFin);
+  } else {
+    // Filtrar por fecha seleccionada
+    const fechaParts = fechaFiltro.split('-');
+    const year = parseInt(fechaParts[0]);
+    const month = parseInt(fechaParts[1]) - 1;
+    const day = parseInt(fechaParts[2]);
+    
+    const diaInicio = new Date(year, month, day).getTime();
+    const diaFin = diaInicio + 86400000;
+    
+    ventasReasignables = todasLasVentas.filter(v => v.timestamp >= diaInicio && v.timestamp < diaFin);
+  }
+  
+  mostrarVentasReasignables();
 }
 
 function mostrarVentasReasignables() {
@@ -6316,7 +6348,7 @@ function mostrarVentasReasignables() {
   if (!container) return;
   
   if (ventasReasignables.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">✓ No hay ventas registradas para hoy</div>';
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">📭 No hay ventas en este período</div>';
     return;
   }
   
@@ -6374,9 +6406,6 @@ function aplicarReasignacionFechas() {
       }
     });
   });
-}
-
-// Llamar cuando se abre Caja (vinculado al botón Actualizar lista)
-// No se ejecuta automáticamente para evitar conflictos</script>
+}</script>
 </body>
 </html>
