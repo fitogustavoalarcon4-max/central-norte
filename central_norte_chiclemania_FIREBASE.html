@@ -6267,46 +6267,76 @@ setTimeout(()=>toast(`⚠️ ${n} producto${n!==1?'s':''} bajo mínimo — revis
 }
 }
 }
+initDB();
+
 // ===== FUNCIONES PARA REASIGNAR FECHAS DE VENTAS =====
+// SE EJECUTAN DESPUÉS DE QUE FIREBASE ESTÉ LISTO
 let ventasReasignables = [];
 
 function cargarVentasParaReasignar() {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const hayHoy = hoy.getTime();
-  const finHoy = hayHoy + 86400000;
+  const container = document.getElementById('ventasParaReasignar');
+  if (!container) return;
   
-  db.ref('ventas').on('value', snap => {
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3)">⏳ Cargando ventas...</div>';
+  
+  const ahora = new Date();
+  const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const hoyFin = new Date(hoyInicio.getTime() + 86400000);
+  
+  const timestampInicio = hoyInicio.getTime();
+  const timestampFin = hoyFin.getTime();
+  
+  db.ref('ventas').once('value', snap => {
     ventasReasignables = [];
+    
     snap.forEach(child => {
       const v = child.val();
       const vid = child.key;
-      if (v.timestamp >= hayHoy && v.timestamp < finHoy) {
-        ventasReasignables.push({id: vid, ...v});
+      
+      if (v && v.timestamp) {
+        const ts = parseInt(v.timestamp);
+        if (ts >= timestampInicio && ts < timestampFin) {
+          ventasReasignables.push({
+            id: vid,
+            cliente: v.cliente || 'Sin nombre',
+            total: v.total || 0,
+            timestamp: ts,
+            metodoPago: v.metodoPago || 'Efectivo'
+          });
+        }
       }
     });
+    
     mostrarVentasReasignables();
   });
 }
 
 function mostrarVentasReasignables() {
   const container = document.getElementById('ventasParaReasignar');
-  if (!ventasReasignables.length) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3)">No hay ventas registradas para hoy</div>';
+  if (!container) return;
+  
+  if (ventasReasignables.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">✓ No hay ventas registradas para hoy</div>';
     return;
   }
   
-  container.innerHTML = ventasReasignables.map((v, idx) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--bdr);background:var(--bg4);border-radius:6px;margin-bottom:6px">
-      <input type="checkbox" id="reasign-${idx}" style="width:18px;height:18px;cursor:pointer" data-venta-id="${v.id}">
-      <label for="reasign-${idx}" style="flex:1;cursor:pointer;font-size:12px">
-        <span style="font-weight:600;color:var(--txt)">${v.cliente || 'Sin nombre'}</span>
-        <span style="color:var(--txt3);margin:0 8px">•</span>
-        <span style="font-family:'DM Mono';font-weight:700;color:var(--grn)">Q${(v.total||0).toFixed(2)}</span>
-        <span style="color:var(--txt3);font-size:11px;display:block;margin-top:2px">${new Date(v.timestamp).toLocaleTimeString('es-GT', {hour:'2-digit',minute:'2-digit'})}</span>
-      </label>
-    </div>
-  `).join('');
+  let html = '';
+  ventasReasignables.forEach((v) => {
+    const hora = new Date(v.timestamp).toLocaleTimeString('es-GT', {hour:'2-digit', minute:'2-digit'});
+    const metodo = v.metodoPago === 'tarjeta' ? '💳' : '💵';
+    
+    html += `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--bdr2);background:var(--bg3);border-radius:6px;margin-bottom:6px">
+        <input type="checkbox" class="reasign-check" data-venta-id="${v.id}" style="width:16px;height:16px;cursor:pointer">
+        <label style="flex:1;cursor:pointer;font-size:12px;margin:0">
+          <div style="font-weight:600;color:var(--txt)">${metodo} ${v.cliente}</div>
+          <div style="color:var(--txt3);font-size:11px;margin-top:2px">Q${v.total.toFixed(2)} • ${hora}</div>
+        </label>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
 }
 
 function aplicarReasignacionFechas() {
@@ -6316,21 +6346,29 @@ function aplicarReasignacionFechas() {
     return;
   }
   
-  const checkboxes = document.querySelectorAll('#ventasParaReasignar input[type="checkbox"]:checked');
-  if (!checkboxes.length) {
-    toast('❌ Selecciona al menos una venta para reasignar', 'error');
+  const checkboxes = document.querySelectorAll('.reasign-check:checked');
+  if (checkboxes.length === 0) {
+    toast('❌ Selecciona al menos una venta', 'error');
     return;
   }
   
-  const nuevaFecha = new Date(fechaDest + 'T12:00:00-06:00').getTime();
+  const fechaParts = fechaDest.split('-');
+  const year = parseInt(fechaParts[0]);
+  const month = parseInt(fechaParts[1]) - 1;
+  const day = parseInt(fechaParts[2]);
+  
+  const nuevaFecha = new Date(year, month, day, 12, 0, 0);
+  const nuevoTimestamp = nuevaFecha.getTime();
+  
   let actualizadas = 0;
+  const total = checkboxes.length;
   
   checkboxes.forEach(cb => {
-    const ventaId = cb.dataset.ventaId;
-    db.ref(`ventas/${ventaId}/timestamp`).set(nuevaFecha, err => {
-      if (!err) actualizadas++;
-      if (actualizadas === checkboxes.length) {
-        toast(`✓ ${actualizadas} venta${actualizadas!==1?'s':''} movida${actualizadas!==1?'s':''} a ${new Date(nuevaFecha).toLocaleDateString('es-GT')}`, 'success');
+    const ventaId = cb.getAttribute('data-venta-id');
+    db.ref(`ventas/${ventaId}`).update({timestamp: nuevoTimestamp}).then(() => {
+      actualizadas++;
+      if (actualizadas === total) {
+        toast(`✓ ${actualizadas} venta${actualizadas !== 1 ? 's' : ''} movida${actualizadas !== 1 ? 's' : ''}`, 'success');
         document.getElementById('fechaDestino').value = '';
         cargarVentasParaReasignar();
       }
@@ -6338,15 +6376,7 @@ function aplicarReasignacionFechas() {
   });
 }
 
-// Cargar ventas cuando se abre la página de Caja
-const origGoPage = goPage;
-goPage = function(page, btn) {
-  origGoPage.call(this, page, btn);
-  if (page === 'caja') {
-    setTimeout(cargarVentasParaReasignar, 500);
-  }
-};
-
-initDB();</script>
+// Llamar cuando se abre Caja (vinculado al botón Actualizar lista)
+// No se ejecuta automáticamente para evitar conflictos</script>
 </body>
 </html>
