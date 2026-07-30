@@ -2519,46 +2519,24 @@ let _anularVentaId = null;
 let _anularPinBuffer = '';
 function abrirCambiarFecha(ventaId){
 const v = db.ventas.find(x=>x.id===ventaId);
-if(!v){ toast('Venta no encontrada','error'); return; }
+if(!v){ alert('Venta no encontrada'); return; }
 const fechaActual = new Date(v.timestamp).toISOString().split('T')[0];
-const modal = document.getElementById('modal-conf');
-document.getElementById('modal-conf-title').textContent = '📅 Cambiar fecha de venta';
-document.getElementById('modal-conf-sub').textContent = `Venta #${v.id} - ${v.cliente} (Q${v.total.toFixed(2)})`;
-document.getElementById('modal-conf-content').innerHTML = `
-<div style="padding:12px;background:var(--bg3);border-radius:6px;margin-bottom:12px">
-<div style="font-size:11px;color:var(--txt3);margin-bottom:6px;font-weight:600">Fecha actual</div>
-<div style="font-size:13px;font-weight:600;color:var(--txt)">${new Date(v.timestamp).toLocaleDateString('es-GT')}</div>
-<div style="font-size:10px;color:var(--txt3);margin-top:2px">${new Date(v.timestamp).toLocaleTimeString('es-GT')}</div>
-</div>
-<div style="margin-bottom:12px">
-<label style="font-size:11px;color:var(--txt2);font-weight:600;display:block;margin-bottom:6px">Nueva fecha</label>
-<input type="date" id="cambiar-fecha-input" value="${fechaActual}" style="width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:6px;color:var(--txt);padding:8px;font-size:13px">
-</div>
-<div style="display:flex;gap:8px">
-<button class="btn btn-sec" onclick="document.getElementById('modal-conf').classList.remove('open')" style="flex:1;padding:8px;font-size:11px">Cancelar</button>
-<button class="btn" onclick="confirmarCambioFecha('${ventaId}')" style="flex:1;background:rgba(34,197,94,.15);color:var(--grn);border:1px solid rgba(34,197,94,.25);padding:8px;font-size:11px">✓ Cambiar fecha</button>
-</div>
-`;
-modal.classList.add('open');
-}
-function confirmarCambioFecha(ventaId){
-const input = document.getElementById('cambiar-fecha-input');
-const fechaStr = input.value;
-if(!fechaStr){ toast('Selecciona una fecha','error'); return; }
-const fechaParts = fechaStr.split('-');
+const nuevaFechaStr = prompt('📅 Cambiar fecha de venta\n\nVenta: '+v.id+'\nCliente: '+v.cliente+'\nTotal: Q'+v.total.toFixed(2)+'\n\nFecha actual: '+fechaActual+'\n\nNueva fecha (yyyy-mm-dd):', fechaActual);
+if(!nuevaFechaStr){ return; }
+const fechaParts = nuevaFechaStr.split('-');
 const year = parseInt(fechaParts[0]);
 const month = parseInt(fechaParts[1]) - 1;
 const day = parseInt(fechaParts[2]);
+if(isNaN(year) || isNaN(month) || isNaN(day)){ alert('Fecha inválida'); return; }
 const nuevaFecha = new Date(year, month, day, 12, 0, 0);
 const nuevoTimestamp = nuevaFecha.getTime();
 const ventaIdx = db.ventas.findIndex(x=>x.id===ventaId);
-if(ventaIdx===-1){ toast('Venta no encontrada','error'); return; }
+if(ventaIdx===-1){ alert('Venta no encontrada'); return; }
 db.ventas[ventaIdx].timestamp = nuevoTimestamp;
 db.ref('ventas/'+ventaId).update({timestamp:nuevoTimestamp}).then(()=>{
-toast(`✓ Venta movida a ${new Date(nuevoTimestamp).toLocaleDateString('es-GT')}`,'success');
-document.getElementById('modal-conf').classList.remove('open');
+alert('✓ Venta movida a '+new Date(nuevoTimestamp).toLocaleDateString('es-GT'));
 renderHistorial(_histFiltro);
-}).catch(err=>{ toast('Error: '+err.message,'error'); console.error(err); });
+}).catch(err=>{ alert('Error: '+err.message); });
 }
 function abrirAnularVenta(ventaId){
 const v = db.ventas.find(x=>x.id===ventaId);
@@ -6290,6 +6268,7 @@ setTimeout(()=>toast(`⚠️ ${n} producto${n!==1?'s':''} bajo mínimo — revis
 }
 }
 }
+// Version: 2025-01-28-v2-cambiar-fecha
 initDB();</script>
 </body>
 </html>
