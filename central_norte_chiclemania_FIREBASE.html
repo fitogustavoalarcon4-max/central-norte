@@ -1,0 +1,113 @@
+const totalSistema = totalEfectivo || 0;
+const efectivo = parseFloat(document.getElementById('caja-efectivo').value)||0;
+const fondo = parseFloat(document.getElementById('caja-fondo').value)||0;
+const efectivoNeto = efectivo - fondo;
+const diferencia = efectivoNeto - totalSistema;
+const el = document.getElementById('caja-diferencia');
+const color = diferencia===0?'var(--grn)':diferencia>0?'var(--blu)':'var(--red)';
+const label = diferencia===0?'✅ Cuadra perfectamente':diferencia>0?('📈 Sobrante Q'+Math.abs(diferencia).toFixed(2)):('📉 Faltante Q'+Math.abs(diferencia).toFixed(2));
+el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
++ '<div><div style="font-size:11px;color:var(--txt3)">Efectivo esperado: <b>Q'+totalSistema.toFixed(2)+'</b> · Efectivo neto: <b>Q'+efectivoNeto.toFixed(2)+'</b></div></div>'
++ '<div style="font-size:16px;font-weight:800;color:'+color+'">'+label+'</div>'
++ '</div>';
+}
+function cerrarCaja(){
+const efectivo = parseFloat(document.getElementById('caja-efectivo').value)||0;
+const fondo    = parseFloat(document.getElementById('caja-fondo').value)||0;
+const obs      = document.getElementById('caja-obs').value.trim();
+if(!efectivo && !fondo){ toast('Ingresá el efectivo en caja','err'); return; }
+const rango = getCajaRango();
+const desde = rango.desde;
+const hasta = rango.hasta;
+const ventasCierre = (db.ventas||[]).filter(v =>
+!v.anulada &&
+fechaLocal(v.timestamp) >= desde &&
+fechaLocal(v.timestamp) <= hasta
+);
+const totalEfectivo     = ventasCierre.filter(v=>!v.metodoPago||v.metodoPago==='efectivo').reduce((s,v)=>s+v.total,0);
+const totalTarjeta      = ventasCierre.filter(v=>v.metodoPago==='tarjeta').reduce((s,v)=>s+v.total,0);
+const totalTransferencia= ventasCierre.filter(v=>v.metodoPago==='transferencia').reduce((s,v)=>s+v.total,0);
+const totalGeneral      = ventasCierre.reduce((s,v)=>s+v.total,0);
+const efectivoNeto= efectivo - fondo;
+const diferencia  = efectivoNeto - totalEfectivo;
+const diffLabel   = diferencia===0 ? '✅ Cuadra perfectamente'
+: diferencia>0   ? '📈 Sobrante Q'+Math.abs(diferencia).toFixed(2)
+:                  '📉 Faltante Q'+Math.abs(diferencia).toFixed(2);
+if(!db.cierresCaja) db.cierresCaja = [];
+const cierre = {
+id: 'CAJA-'+Date.now(), timestamp: ahora(), fecha: hoy(),
+periodoDesde: desde, periodoHasta: hasta, periodoLabel: rango.label,
+totalSistema: totalEfectivo, totalGeneral,
+totalTarjeta, totalTransferencia,
+efectivo, fondo, efectivoNeto, diferencia,
+obs, ejecutadoPor: _rolActual==='admin'?'Admin':'Rosmery Archila',
+nVentas: ventasCierre.length,
+ventas: ventasCierre,
+};
+db.cierresCaja.push(cierre);
+saveDB();
+document.getElementById('caja-efectivo').value='';
+document.getElementById('caja-fondo').value='';
+document.getElementById('caja-obs').value='';
+document.getElementById('caja-diferencia').innerHTML='<span style="color:var(--txt3)">Ingresá el efectivo para ver la diferencia</span>';
+renderCajaHistorial();
+_cierreParaImprimir = cierre;
+abrirModalImpresionCierre(cierre, diffLabel);
+}
+let _cierreParaImprimir = null;
+function abrirModalImpresionCierre(c, diffLabel){
+const color = c.diferencia===0?'var(--grn)':c.diferencia>0?'var(--blu)':'var(--red)';
+let modal = document.getElementById('modal-cierre-ok');
+if(!modal){
+modal = document.createElement('div');
+modal.id = 'modal-cierre-ok';
+modal.className = 'modal-overlay';
+document.body.appendChild(modal);
+}
+modal.innerHTML = `
+<div class="modal-box" style="max-width:380px;text-align:center">
+<div style="font-size:48px;margin-bottom:10px">✅</div>
+<div class="modal-title">Cierre guardado</div>
+<div style="font-size:13px;color:var(--txt2);margin-bottom:6px">${c.periodoLabel}</div>
+<div style="font-size:13px;color:var(--txt3);margin-bottom:4px">${fmtFecha(c.timestamp)} · ${fmtHora(c.timestamp)}</div>
+<div style="font-size:13px;color:var(--txt3);margin-bottom:4px">${c.nVentas} ventas · Q${c.totalGeneral.toFixed(2)} total</div>
+<div style="font-size:16px;font-weight:800;color:${color};margin:10px 0">${diffLabel}</div>
+<div style="font-size:13px;font-weight:600;color:var(--txt);margin:16px 0 10px">¿Querés imprimir el reporte ahora?</div>
+<div style="display:flex;gap:8px;margin-bottom:10px">
+<button class="btn btn-success" style="flex:1" onclick="imprimirCierreExcel('${c.id}')">📊 Excel</button>
+<button class="btn btn-sec" style="flex:1" onclick="imprimirCierrePDF('${c.id}')">🖨️ PDF</button>
+</div>
+<button class="btn btn-sec btn-sm btn-full" onclick="cerrarModal('modal-cierre-ok')">
+No, guardar solo en historial
+</button>
+</div>`;
+modal.classList.add('open');
+}
+function imprimirCierreExcel(cierreId){
+const c = db.cierresCaja?.find(x=>x.id===cierreId);
+if(!c){ toast('Cierre no encontrado','err'); return; }
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+'Fecha cierre':   fmtFecha(c.timestamp)+' '+fmtHora(c.timestamp),
+'Período':        c.periodoLabel,
+'Ventas activas': c.nVentas,
+'Total ventas Q': c.totalGeneral.toFixed(2),
+'Efectivo Q':     c.totalSistema.toFixed(2),
+'Tarjeta Q':      (c.totalTarjeta||0).toFixed(2),
+'Transferencia Q':(c.totalTransferencia||0).toFixed(2),
+'Efectivo físico Q': c.efectivoNeto.toFixed(2),
+'Diferencia Q':   c.diferencia.toFixed(2),
+'Estado':         c.diferencia===0?'Cuadra':c.diferencia>0?'Sobrante':'Faltante',
+'Cerrado por':    c.ejecutadoPor,
+'Observaciones':  c.obs||'',
+}]), 'Resumen cierre');
+if(c.ventas?.length){
+const detalle = [];
+c.ventas.forEach(v=>{
+v.items.forEach(i=>{
+detalle.push({
+'Fecha': fmtFecha(v.timestamp), 'Hora': fmtHora(v.timestamp),
+'Venta': v.id, 'Cliente': v.cliente||'CF', 'NIT': v.nit||'CF',
+'Producto': i.nombre, 'Cant.': i.cant, 'Precio Q': i.precio,
+'Subtotal Q': i.subtotal,
+'Méto
